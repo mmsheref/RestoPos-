@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Restaurant POS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // CONFIG: Add dark mode support using a class
+      tailwind.config = {
+        darkMode: 'class',
+      }
+    </script>
+    <style>
+      /* Simple scrollbar styling for a cleaner look */
+      :root {
+        --scrollbar-track: #f1f1f1;
+        --scrollbar-thumb: #888;
+        --scrollbar-thumb-hover: #555;
+      }
+      html.dark {
+        --scrollbar-track: #2d3748; /* gray-800 */
+        --scrollbar-thumb: #718096; /* gray-500 */
+        --scrollbar-thumb-hover: #a0aec0; /* gray-400 */
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--scrollbar-track);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--scrollbar-thumb);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--scrollbar-thumb-hover);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24"
+  }
+}
+</script>
+<script>
+    // PRE-LOAD: Apply theme before React loads to prevent flash of unstyled content
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  </script>
+</head>
+  <body class="bg-gray-100 dark:bg-gray-900 antialiased">
+    <div id="root"></div>
+    <script src="capacitor.js"></script>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
