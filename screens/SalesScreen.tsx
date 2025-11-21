@@ -42,7 +42,7 @@ const initialItems = {
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
 const SalesScreen: React.FC = () => {
-  const { setHeaderTitle, openDrawer } = useAppContext();
+  const { setHeaderTitle, openDrawer, settings } = useAppContext();
 
   // Search state
   const [isSearching, setIsSearching] = useState(false);
@@ -275,9 +275,9 @@ const SalesScreen: React.FC = () => {
     setEditingTicket(null);
   };
 
-  // 5% GST for India
+  // Financial Calculations
   const subtotal = useMemo(() => currentOrder.reduce((sum, item) => sum + item.price * item.quantity, 0), [currentOrder]);
-  const tax = useMemo(() => subtotal * 0.05, [subtotal]);
+  const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
 
   const searchResults = useMemo(() => {
@@ -544,10 +544,12 @@ const SalesScreen: React.FC = () => {
               <span>Subtotal</span>
               <span>₹{subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-slate-600 dark:text-slate-400">
-              <span>GST (5%)</span>
-              <span>₹{tax.toFixed(2)}</span>
-            </div>
+            {settings.taxEnabled && (
+              <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                <span>GST ({settings.taxRate}%)</span>
+                <span>₹{tax.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-xl text-slate-800 dark:text-slate-100 pt-2 border-t mt-2 border-slate-200 dark:border-slate-700">
               <span>Total</span>
               <span>₹{total.toFixed(2)}</span>

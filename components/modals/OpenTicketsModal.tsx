@@ -1,6 +1,7 @@
 
 import React from 'react';
 import type { OrderItem, SavedTicket } from '../../types';
+import { useAppContext } from '../../context/AppContext';
 
 interface OpenTicketsModalProps {
     isOpen: boolean;
@@ -11,10 +12,12 @@ interface OpenTicketsModalProps {
 }
 
 const OpenTicketsModal: React.FC<OpenTicketsModalProps> = ({ isOpen, tickets, onClose, onLoadTicket, onDeleteTicket }) => {
-    
+    const { settings } = useAppContext();
+
     const calculateTotal = (items: OrderItem[]) => {
         const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        return subtotal * 1.05; // subtotal + 5% GST
+        const taxMultiplier = settings.taxEnabled ? (1 + settings.taxRate / 100) : 1;
+        return subtotal * taxMultiplier;
     };
 
     if (!isOpen) return null;
