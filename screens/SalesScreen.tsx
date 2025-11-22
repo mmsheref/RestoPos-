@@ -8,6 +8,7 @@ import SaveTicketModal from '../components/modals/SaveTicketModal';
 import OpenTicketsModal from '../components/modals/OpenTicketsModal';
 import TabManagementModal from '../components/modals/TabManagementModal';
 import { MenuIcon, SearchIcon, CloseIcon, ThreeDotsIcon, TrashIcon } from '../constants';
+import { printReceipt } from '../utils/printerHelper';
 
 
 // --- Initial Data ---
@@ -42,7 +43,7 @@ const initialItems = {
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
 const SalesScreen: React.FC = () => {
-  const { setHeaderTitle, openDrawer, settings } = useAppContext();
+  const { setHeaderTitle, openDrawer, settings, printers } = useAppContext();
 
   // Search state
   const [isSearching, setIsSearching] = useState(false);
@@ -274,7 +275,13 @@ const SalesScreen: React.FC = () => {
   };
   
   const handleCharge = () => {
+    // Logic to handle charge (could also trigger print here)
     alert(`Charging ₹${total.toFixed(2)}.`);
+    
+    // Optional: Print on charge?
+    // const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
+    // printReceipt(currentOrder, total, printer);
+
     if (editingTicket) {
       setSavedTickets(savedTickets.filter(t => t.id !== editingTicket.id));
     }
@@ -287,7 +294,7 @@ const SalesScreen: React.FC = () => {
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
 
-  const handleTicketAction = (action: 'clear' | 'print' | 'edit' | 'assign' | 'split' | 'move' | 'drawer') => {
+  const handleTicketAction = async (action: 'clear' | 'print' | 'edit' | 'assign' | 'split' | 'move' | 'drawer') => {
     setTicketMenuOpen(false);
     
     switch (action) {
@@ -305,9 +312,10 @@ const SalesScreen: React.FC = () => {
            alert("Ticket is empty. Nothing to print.");
            return;
         }
-        // Simulation of printing
-        const billText = currentOrder.map(i => `${i.quantity}x ${i.name.padEnd(20)} ${(i.price * i.quantity).toFixed(2)}`).join('\n');
-        alert(`🖨️ Printing Bill ${editingTicket ? `(${editingTicket.name})` : ''}...\n\n${billText}\n\n----------------\nTotal: ₹${total.toFixed(2)}`);
+        
+        // Finds the first Bluetooth printer, or defaults to the first printer in list
+        const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
+        await printReceipt(currentOrder, total, printer);
         break;
 
       case 'edit':

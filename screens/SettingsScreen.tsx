@@ -3,6 +3,14 @@ import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrashIcon, CloseIcon } from '../constants';
 import { Printer, PrinterInterfaceType, PrinterPaperWidth } from '../types';
+import { requestAppPermissions } from '../utils/permissions';
+
+// Add type definition for the plugin
+declare global {
+  interface Window {
+    bluetoothSerial: any;
+  }
+}
 
 const SettingsScreen: React.FC = () => {
   const { theme, setTheme, settings, updateSettings, printers, addPrinter, removePrinter } = useAppContext();
@@ -42,21 +50,62 @@ const SettingsScreen: React.FC = () => {
     setIsPrinterModalOpen(true);
   };
 
-  const handleStartScan = () => {
+  const handleStartScan = async () => {
     if (printerInterface !== 'Bluetooth') return;
     
     setIsScanning(true);
     setFoundDevices([]);
 
-    // Simulate scanning for 2 seconds
-    setTimeout(() => {
-        setFoundDevices([
-            { name: 'Star Micronics TSP100', address: '00:11:22:33:44:55' },
-            { name: 'Epson TM-m30', address: 'AA:BB:CC:DD:EE:FF' },
-            { name: 'Generic POS Printer', address: '12:34:56:78:90:AB' },
-        ]);
+    // 1. Try Native Scanning
+    if (window.bluetoothSerial) {
+      // Request Runtime Permissions first
+      const hasPermission = await requestAppPermissions();
+      if (!hasPermission) {
         setIsScanning(false);
-    }, 2000);
+        return;
+      }
+
+      // First list paired devices (faster)
+      window.bluetoothSerial.list(
+        (pairedDevices: any[]) => {
+            const mapped = pairedDevices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
+            setFoundDevices(prev => [...prev, ...mapped]);
+        },
+        (err: any) => console.error("List failed", err)
+      );
+
+      // Then discover unpaired devices
+      window.bluetoothSerial.discoverUnpaired(
+        (devices: any[]) => {
+          const mapped = devices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
+          // Filter duplicates
+          setFoundDevices(prev => {
+             const newDevs = [...prev];
+             mapped.forEach(m => {
+                 if(!newDevs.find(d => d.address === m.address)) newDevs.push(m);
+             });
+             return newDevs;
+          });
+          setIsScanning(false);
+        },
+        (err: any) => {
+          // Often "Device connection was lost" or "No devices found"
+          console.warn("Discovery stopped or failed", err);
+          setIsScanning(false);
+        }
+      );
+    } 
+    // 2. Fallback to Simulation
+    else {
+      setTimeout(() => {
+          setFoundDevices([
+              { name: 'Star Micronics TSP100', address: '00:11:22:33:44:55' },
+              { name: 'Epson TM-m30', address: 'AA:BB:CC:DD:EE:FF' },
+              { name: 'Generic POS Printer', address: '12:34:56:78:90:AB' },
+          ]);
+          setIsScanning(false);
+      }, 2000);
+    }
   };
 
   const handleSelectDevice = (device: { name: string, address: string }) => {
