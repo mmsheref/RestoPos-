@@ -36,3 +36,19 @@ export interface Printer {
   paperWidth: PrinterPaperWidth;
   address?: string; // MAC address (BT) or IP (Ethernet)
 }
+
+export interface AppSettings {
+  taxEnabled: boolean;
+  taxRate: number;
+  storeName?: string;
+}
+
+export interface BackupData {
+  version: string;
+  timestamp: string;
+  settings: AppSettings;
+  items: Item[];
+  categories: string[];
+  printers: Printer[];
+  receipts: Receipt[];
+}
