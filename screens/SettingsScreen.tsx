@@ -4,6 +4,7 @@ import { useAppContext } from '../context/AppContext';
 import { TrashIcon, CloseIcon } from '../constants';
 import { Printer, PrinterInterfaceType, PrinterPaperWidth } from '../types';
 import { requestAppPermissions } from '../utils/permissions';
+import { testPrint } from '../utils/printerHelper';
 
 // Add type definition for the plugin
 declare global {
@@ -25,6 +26,9 @@ const SettingsScreen: React.FC = () => {
   // Scanning State
   const [isScanning, setIsScanning] = useState(false);
   const [foundDevices, setFoundDevices] = useState<{name: string, address: string}[]>([]);
+
+  // Testing State
+  const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -138,6 +142,16 @@ const SettingsScreen: React.FC = () => {
     }
   };
 
+  const handleTestPrinter = async (printer: Printer) => {
+    setTestingPrinterId(printer.id);
+    const result = await testPrint(printer);
+    setTestingPrinterId(null);
+    
+    if (!result.success) {
+        alert(`Error: ${result.message}`);
+    }
+  };
+
   return (
     <div className="p-6 pb-24 dark:bg-gray-900 min-h-full">
       <h1 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">Settings</h1>
@@ -241,26 +255,35 @@ const SettingsScreen: React.FC = () => {
               <ul className="space-y-2">
                 {printers.map(printer => (
                   <li key={printer.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <div className="flex items-center gap-3 flex-grow overflow-hidden">
+                      <div className="h-10 w-10 flex-shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                          {/* Printer Icon */}
                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                          </svg>
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-gray-800 dark:text-gray-200">{printer.name}</h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="truncate">
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 truncate">{printer.name}</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                           {printer.interfaceType} &bull; {printer.paperWidth}
                         </p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleRemovePrinter(printer.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                    >
-                      <TrashIcon className="h-5 w-5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => handleTestPrinter(printer)}
+                            disabled={testingPrinterId === printer.id}
+                            className="px-3 py-1.5 text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-md hover:bg-green-200 dark:hover:bg-green-900/50 transition-colors disabled:opacity-50"
+                        >
+                            {testingPrinterId === printer.id ? 'Testing...' : 'Test'}
+                        </button>
+                        <button 
+                          onClick={() => handleRemovePrinter(printer.id)}
+                          className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                    </div>
                   </li>
                 ))}
               </ul>

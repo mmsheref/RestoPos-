@@ -21,6 +21,87 @@ const COMMANDS = {
   CUT: GS + 'V' + '\x41' + '\x00',
 };
 
+/**
+ * Checks if a specific device is currently connected.
+ */
+export const checkPrinterConnection = async (): Promise<boolean> => {
+  if (!window.bluetoothSerial) return false;
+  return new Promise((resolve) => {
+    window.bluetoothSerial.isConnected(
+      () => resolve(true),
+      () => resolve(false)
+    );
+  });
+};
+
+/**
+ * Connects to a printer if not already connected.
+ */
+const ensureConnection = async (address: string): Promise<void> => {
+  const isConnected = await checkPrinterConnection();
+  if (!isConnected) {
+    return new Promise((resolve, reject) => {
+      window.bluetoothSerial.connect(
+        address,
+        () => resolve(),
+        (err: any) => reject(err)
+      );
+    });
+  }
+};
+
+/**
+ * Sends a small test print to verify configuration and connectivity.
+ */
+export const testPrint = async (printer: Printer): Promise<{ success: boolean; message: string }> => {
+  // 1. Web Fallback
+  if (!window.bluetoothSerial) {
+    console.log(`Test Print for ${printer.name} (${printer.address})`);
+    alert(`Simulated Test Print:\n\n[PRINTER: ${printer.name}]\n[INTERFACE: ${printer.interfaceType}]\n\nConnection Successful!`);
+    return { success: true, message: "Simulated test print successful" };
+  }
+
+  // 2. Native Logic
+  if (printer.interfaceType !== 'Bluetooth') {
+    return { success: false, message: "Only Bluetooth test printing is currently supported." };
+  }
+
+  try {
+    // Permission check
+    const hasPermission = await requestAppPermissions();
+    if (!hasPermission) {
+      return { success: false, message: "Bluetooth permissions denied." };
+    }
+
+    // Connect
+    await ensureConnection(printer.address!);
+
+    // Prepare Data
+    let data = COMMANDS.INIT;
+    data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "TEST PRINT\n" + COMMANDS.BOLD_OFF;
+    data += "--------------------------------\n";
+    data += COMMANDS.LEFT;
+    data += `Device: ${printer.name}\n`;
+    data += `Addr: ${printer.address}\n`;
+    data += "Status: Connected\n";
+    data += "--------------------------------\n";
+    data += COMMANDS.CENTER + "It Works!\n";
+    data += "\n\n" + COMMANDS.CUT;
+
+    // Send
+    return new Promise((resolve) => {
+      window.bluetoothSerial.write(
+        data,
+        () => resolve({ success: true, message: "Test print sent successfully." }),
+        (err: any) => resolve({ success: false, message: `Write failed: ${JSON.stringify(err)}` })
+      );
+    });
+
+  } catch (error) {
+    return { success: false, message: `Connection failed: ${JSON.stringify(error)}` };
+  }
+};
+
 export const printReceipt = async (items: OrderItem[], total: number, printer?: Printer) => {
   if (!printer) {
     alert("No printer configured. Please add a printer in Settings.");
@@ -30,32 +111,13 @@ export const printReceipt = async (items: OrderItem[], total: number, printer?: 
   // 1. Native Bluetooth Printing
   if (printer.interfaceType === 'Bluetooth' && window.bluetoothSerial) {
     try {
-      // Request Permissions before connecting
       const hasPermission = await requestAppPermissions();
       if (!hasPermission) {
         console.warn("Bluetooth permissions denied. Aborting print.");
         return;
       }
 
-      // Check connection
-      const isConnected = await new Promise<boolean>(resolve => {
-        window.bluetoothSerial.isConnected(
-          () => resolve(true),
-          () => resolve(false)
-        );
-      });
-
-      // Connect if not connected
-      if (!isConnected) {
-        // alert(`Connecting to ${printer.name}...`);
-        await new Promise((resolve, reject) => {
-          window.bluetoothSerial.connect(
-            printer.address, 
-            resolve, 
-            (err: any) => reject(err)
-          );
-        });
-      }
+      await ensureConnection(printer.address!);
 
       // Construct Receipt Data
       let data = '';
