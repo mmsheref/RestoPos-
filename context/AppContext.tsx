@@ -1,10 +1,10 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { Printer, Receipt, Item, AppSettings, BackupData } from '../types';
-import useLocalStorage from '../hooks/useLocalStorage';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import * as DB from '../db/db';
 
 type Theme = 'light' | 'dark';
 
@@ -20,6 +20,8 @@ const INITIAL_ITEMS: Item[] = [
     { id: 'b1', name: 'Coke', price: 60.00, category: 'Beverages', stock: 200, imageUrl: 'https://picsum.photos/id/90/200/200' },
 ];
 
+const DEFAULT_SETTINGS: AppSettings = { taxEnabled: true, taxRate: 5, storeName: 'My Restaurant' };
+
 interface AppContextType {
   isDrawerOpen: boolean;
   openDrawer: () => void;
@@ -31,6 +33,7 @@ interface AppContextType {
   setTheme: (theme: Theme) => void;
   
   // Data
+  isLoading: boolean;
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   
@@ -47,7 +50,7 @@ interface AppContextType {
   deleteItem: (id: string) => void;
   
   categories: string[];
-  setCategories: (categories: string[]) => void; // For reordering/renaming
+  setCategories: (categories: string[]) => void; 
   addCategory: (name: string) => void;
 
   // Backup
@@ -60,6 +63,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
   
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -72,22 +76,69 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return 'light';
   });
 
-  // --- Persistent State (The "Database") ---
-  const [settings, setSettings] = useLocalStorage<AppSettings>('appSettings', { taxEnabled: true, taxRate: 5, storeName: 'My Restaurant' });
-  const [printers, setPrinters] = useLocalStorage<Printer[]>('printers', []);
-  const [receipts, setReceipts] = useLocalStorage<Receipt[]>('receipts', []);
-  const [items, setItems] = useLocalStorage<Item[]>('items', INITIAL_ITEMS);
-  const [categories, setCategoriesState] = useLocalStorage<string[]>('categories', INITIAL_CATEGORIES);
+  // --- State ---
+  const [settings, setSettingsState] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [printers, setPrintersState] = useState<Printer[]>([]);
+  const [receipts, setReceiptsState] = useState<Receipt[]>([]);
+  const [items, setItemsState] = useState<Item[]>([]);
+  const [categories, setCategoriesState] = useState<string[]>([]);
   
-  // Memoize receipts to parse date strings from localStorage into Date objects
-  const parsedReceipts = useMemo(() => {
-    return receipts.map(r => ({...r, date: new Date(r.date)}));
-  }, [receipts]);
+  // --- Initialize & Load Data ---
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        await DB.initDB();
+        
+        // Load data in parallel
+        const [loadedItems, loadedReceipts, loadedPrinters, loadedSettings, loadedCategories] = await Promise.all([
+            DB.getAllItems(),
+            DB.getAllReceipts(),
+            DB.getAllPrinters(),
+            DB.getSettings(),
+            DB.getCategories()
+        ]);
 
-  const addReceipt = useCallback((receipt: Receipt) => {
-    setReceipts(prev => [receipt, ...prev]);
-    // Optional: Deduct stock logic could go here
-  }, [setReceipts]);
+        // Seed Initial Data if empty
+        if (loadedItems.length === 0 && loadedCategories === undefined) {
+             console.log("Seeding Database...");
+             // Seed Items
+             for (const item of INITIAL_ITEMS) await DB.putItem(item);
+             setItemsState(INITIAL_ITEMS);
+
+             // Seed Categories
+             await DB.saveCategories(INITIAL_CATEGORIES);
+             setCategoriesState(INITIAL_CATEGORIES);
+
+             // Seed Settings
+             await DB.saveSettings(DEFAULT_SETTINGS);
+             setSettingsState(DEFAULT_SETTINGS);
+        } else {
+             setItemsState(loadedItems);
+             setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
+             setPrintersState(loadedPrinters);
+             setSettingsState(loadedSettings || DEFAULT_SETTINGS);
+             setCategoriesState(loadedCategories || INITIAL_CATEGORIES);
+        }
+
+      } catch (e) {
+        console.error("Failed to initialize database:", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initData();
+  }, []);
+
+
+  // --- Logic Wrappers ---
+
+  const addReceipt = useCallback(async (receipt: Receipt) => {
+    // Optimistic UI update
+    setReceiptsState(prev => [receipt, ...prev]);
+    // DB Update
+    await DB.addReceipt(receipt);
+  }, []);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
@@ -102,42 +153,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [theme]);
 
-  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
-    setSettings(prev => ({ ...prev, ...newSettings }));
-  }, [setSettings]);
+  const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
+    const updated = { ...settings, ...newSettings };
+    setSettingsState(updated);
+    await DB.saveSettings(updated);
+  }, [settings]);
 
-  const addPrinter = useCallback((printer: Printer) => {
-    setPrinters(prev => [...prev, printer]);
-  }, [setPrinters]);
+  const addPrinter = useCallback(async (printer: Printer) => {
+    setPrintersState(prev => [...prev, printer]);
+    await DB.putPrinter(printer);
+  }, []);
 
-  const removePrinter = useCallback((printerId: string) => {
-    setPrinters(prev => prev.filter(p => p.id !== printerId));
-  }, [setPrinters]);
+  const removePrinter = useCallback(async (printerId: string) => {
+    setPrintersState(prev => prev.filter(p => p.id !== printerId));
+    await DB.deletePrinter(printerId);
+  }, []);
 
   // --- Item Management ---
-  const addItem = useCallback((item: Item) => {
-    setItems(prev => [...prev, item]);
-  }, [setItems]);
+  const addItem = useCallback(async (item: Item) => {
+    setItemsState(prev => [...prev, item]);
+    await DB.putItem(item);
+  }, []);
 
-  const updateItem = useCallback((updatedItem: Item) => {
-    setItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-  }, [setItems]);
+  const updateItem = useCallback(async (updatedItem: Item) => {
+    setItemsState(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
+    await DB.putItem(updatedItem);
+  }, []);
 
-  const deleteItem = useCallback((id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
-  }, [setItems]);
+  const deleteItem = useCallback(async (id: string) => {
+    setItemsState(prev => prev.filter(item => item.id !== id));
+    await DB.deleteItem(id);
+  }, []);
 
   // --- Category Management ---
-  const setCategories = useCallback((newCategories: string[]) => {
+  const setCategories = useCallback(async (newCategories: string[]) => {
       setCategoriesState(newCategories);
-  }, [setCategoriesState]);
+      await DB.saveCategories(newCategories);
+  }, []);
 
-  const addCategory = useCallback((name: string) => {
-      setCategoriesState(prev => {
-          if (prev.includes(name)) return prev;
-          return [...prev, name];
-      });
-  }, [setCategoriesState]);
+  const addCategory = useCallback(async (name: string) => {
+      const newCats = categories.includes(name) ? categories : [...categories, name];
+      setCategoriesState(newCats);
+      await DB.saveCategories(newCats);
+  }, [categories]);
 
 
   // --- Backup & Restore ---
@@ -149,16 +207,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         items,
         categories,
         printers,
-        receipts // Local storage raw state (Date might be string or Date object, JSON.stringify handles both)
+        receipts
     };
     
     const jsonString = JSON.stringify(backup, null, 2);
     const fileName = `pos_backup_${new Date().toISOString().slice(0, 10)}.json`;
 
     if (Capacitor.isNativePlatform()) {
-      // --- NATIVE (Android/iOS) Logic ---
       try {
-        // 1. Write file to Cache directory (safe for sharing)
         const result = await Filesystem.writeFile({
           path: fileName,
           data: jsonString,
@@ -166,7 +222,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           encoding: Encoding.UTF8
         });
 
-        // 2. Share the file so user can save it to Drive/Files
         await Share.share({
           title: 'Restaurant POS Backup',
           text: `Backup created on ${new Date().toLocaleDateString()}`,
@@ -179,7 +234,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         alert(`Export Failed: ${error.message || error}`);
       }
     } else {
-      // --- WEB Logic ---
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString);
       const downloadAnchorNode = document.createElement('a');
       downloadAnchorNode.setAttribute("href", dataStr);
@@ -190,27 +244,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [settings, items, categories, printers, receipts]);
 
-  const restoreData = useCallback((data: BackupData) => {
-      setSettings(data.settings);
-      setItems(data.items);
-      setCategoriesState(data.categories);
-      setPrinters(data.printers || []);
-      setReceipts(data.receipts || []);
-  }, [setSettings, setItems, setCategoriesState, setPrinters, setReceipts]);
+  const restoreData = useCallback(async (data: BackupData) => {
+      setIsLoading(true);
+      try {
+          await DB.clearDatabase();
+          
+          // Helper to restore parsed receipts (dates are strings in JSON)
+          const restoredReceipts = (data.receipts || []).map(r => ({
+              ...r,
+              date: new Date(r.date)
+          }));
+
+          // Bulk Insert to DB
+          await DB.saveSettings(data.settings);
+          await DB.saveCategories(data.categories);
+          
+          for(const p of (data.printers || [])) await DB.putPrinter(p);
+          for(const i of (data.items || [])) await DB.putItem(i);
+          for(const r of restoredReceipts) await DB.addReceipt(r);
+
+          // Update State
+          setSettingsState(data.settings);
+          setItemsState(data.items || []);
+          setCategoriesState(data.categories || []);
+          setPrintersState(data.printers || []);
+          setReceiptsState(restoredReceipts);
+
+      } catch(e) {
+          console.error("Restore failed", e);
+          alert("Failed to restore data from backup.");
+      } finally {
+          setIsLoading(false);
+      }
+  }, []);
 
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
   
+  // Show a loading screen or simple fallback until DB is ready
+  if (isLoading) {
+      return (
+          <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
+             <div className="text-center">
+                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                 <p className="text-gray-600 dark:text-gray-400">Loading Database...</p>
+             </div>
+          </div>
+      )
+  }
+
   return (
     <AppContext.Provider value={{ 
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
       theme, setTheme,
+      isLoading,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
-      receipts: parsedReceipts, addReceipt,
+      receipts, addReceipt,
       items, addItem, updateItem, deleteItem,
       categories, setCategories, addCategory,
       exportData, restoreData
