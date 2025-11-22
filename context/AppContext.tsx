@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { Printer } from '../types';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
+import { Printer, Receipt } from '../types';
 import useLocalStorage from '../hooks/useLocalStorage';
 
 type Theme = 'light' | 'dark';
@@ -8,6 +8,12 @@ interface AppSettings {
   taxEnabled: boolean;
   taxRate: number;
 }
+
+const mockReceipts: Receipt[] = [
+  { id: 'R003', date: new Date('2023-10-27T14:48:00'), items: [{ id: 'm1', name: 'Steak Frites', price: 650.00, quantity: 2, category: 'Main', stock: 1, imageUrl: '' }], total: 1365.00, paymentMethod: 'Card' },
+  { id: 'R002', date: new Date('2023-10-27T12:30:00'), items: [{ id: 'b1', name: 'Coke', price: 60.00, quantity: 2, category: 'Bev', stock: 1, imageUrl: '' }], total: 126.00, paymentMethod: 'Cash' },
+  { id: 'R001', date: new Date('2023-10-26T19:00:00'), items: [{ id: 'd1', name: 'Cheesecake', price: 220.00, quantity: 1, category: 'Dessert', stock: 1, imageUrl: '' }], total: 231.00, paymentMethod: 'Card' },
+];
 
 interface AppContextType {
   isDrawerOpen: boolean;
@@ -23,6 +29,8 @@ interface AppContextType {
   printers: Printer[];
   addPrinter: (printer: Printer) => void;
   removePrinter: (printerId: string) => void;
+  receipts: Receipt[];
+  addReceipt: (receipt: Receipt) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -44,6 +52,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [settings, setSettings] = useLocalStorage<AppSettings>('appSettings', { taxEnabled: true, taxRate: 5 });
   const [printers, setPrinters] = useLocalStorage<Printer[]>('printers', []);
+  const [receipts, setReceipts] = useLocalStorage<Receipt[]>('receipts', mockReceipts);
+  
+  // Memoize receipts to parse date strings from localStorage into Date objects
+  const parsedReceipts = useMemo(() => {
+    return receipts.map(r => ({...r, date: new Date(r.date)}));
+  }, [receipts]);
+
+  const addReceipt = useCallback((receipt: Receipt) => {
+    setReceipts(prev => [receipt, ...prev]);
+  }, [setReceipts]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
@@ -80,7 +98,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       headerTitle, setHeaderTitle,
       theme, setTheme,
       settings, updateSettings,
-      printers, addPrinter, removePrinter
+      printers, addPrinter, removePrinter,
+      receipts: parsedReceipts, addReceipt
     }}>
       {children}
     </AppContext.Provider>

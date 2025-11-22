@@ -1,7 +1,7 @@
 
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { OrderItem, SavedTicket } from '../types';
+import type { OrderItem, SavedTicket, Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
 
 // Modals and Child Components
@@ -12,6 +12,7 @@ import SalesHeader from '../components/sales/SalesHeader';
 import ItemGrid from '../components/sales/ItemGrid';
 import CategoryTabs from '../components/sales/CategoryTabs';
 import Ticket from '../components/sales/Ticket';
+import ChargeScreen from '../components/sales/ChargeScreen';
 import { ReceiptIcon } from '../constants';
 
 // --- Initial Data ---
@@ -45,9 +46,14 @@ const initialItems = {
 
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
-const SalesScreen: React.FC = () => {
-  const { setHeaderTitle, openDrawer, settings, printers } = useAppContext();
+type SalesView = 'grid' | 'payment';
 
+const SalesScreen: React.FC = () => {
+  const { setHeaderTitle, openDrawer, settings, printers, addReceipt } = useAppContext();
+
+  // Main screen view state
+  const [salesView, setSalesView] = useState<SalesView>('grid');
+  
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -63,6 +69,9 @@ const SalesScreen: React.FC = () => {
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
+  // Payment state
+  const [paymentResult, setPaymentResult] = useState<{ method: 'Cash' | 'QR', change: number } | null>(null);
+
   // Modal states
   const [isTabModalOpen, setIsTabModalOpen] = useState(false);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
@@ -74,14 +83,16 @@ const SalesScreen: React.FC = () => {
   
   // Update header title based on current order status
   useEffect(() => {
-    if (editingTicket) {
+    if (salesView === 'payment') {
+        setHeaderTitle('Checkout');
+    } else if (editingTicket) {
       setHeaderTitle(`Editing: ${editingTicket.name}`);
     } else if (currentOrder.length > 0) {
       setHeaderTitle('New Order');
     } else {
       setHeaderTitle('Sales');
     }
-  }, [editingTicket, currentOrder.length, setHeaderTitle]);
+  }, [editingTicket, currentOrder.length, setHeaderTitle, salesView]);
 
   const openEditModal = (tabName: string) => {
     const index = tabs.findIndex(t => t === tabName);
@@ -264,20 +275,40 @@ const SalesScreen: React.FC = () => {
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   
-  const handleCharge = () => {
-    alert(`Charging ₹${total.toFixed(2)}.`);
+  const handleChargeClick = () => {
+    setSalesView('payment');
+  };
+
+  const handleProcessPayment = (method: 'Cash' | 'QR', tendered: number) => {
+    const changeDue = tendered - total;
+
     if (editingTicket) {
-      setSavedTickets(savedTickets.filter(t => t.id !== editingTicket.id));
+      setSavedTickets(prev => prev.filter(t => t.id !== editingTicket.id));
     }
+    
+    addReceipt({
+        id: `R${Date.now()}`,
+        date: new Date(),
+        items: currentOrder,
+        total: total,
+        paymentMethod: method,
+    });
+
+    setPaymentResult({ method, change: changeDue });
+
+    // NOTE: We do NOT clear the order here. We keep it so the "Transaction Complete" screen
+    // can still display the ticket details and totals. The order is cleared in handleNewSale.
+  };
+
+  const handleNewSale = () => {
+    setSalesView('grid');
+    setPaymentResult(null);
     setCurrentOrder([]);
     setEditingTicket(null);
-    setIsTicketVisible(false); // Go back to grid on mobile
   };
   
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
-    // FIX: Replaced .flat() with a more compatible .reduce() to flatten the array, avoiding potential TypeScript type inference issues.
-    // FIX: Explicitly type the accumulator `acc` to resolve type inference error with the initial empty array value.
     const allItems: { id: string; name: string; price: number; imageUrl: string; }[] = Object.values(itemsByTab).reduce((acc: { id: string; name: string; price: number; imageUrl: string; }[], val) => acc.concat(val), []);
     return allItems.filter(item => 
         item.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
@@ -292,6 +323,21 @@ const SalesScreen: React.FC = () => {
     }
     return displayItems;
   }, [activeTab, itemsByTab, searchQuery, searchResults]);
+
+  if (salesView === 'payment') {
+    return (
+      <ChargeScreen
+        total={total}
+        tax={tax}
+        subtotal={subtotal}
+        onBack={() => setSalesView('grid')}
+        onProcessPayment={handleProcessPayment}
+        onNewSale={handleNewSale}
+        paymentResult={paymentResult}
+        orderItems={currentOrder}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-slate-50 dark:bg-slate-900 font-sans relative">
@@ -342,7 +388,7 @@ const SalesScreen: React.FC = () => {
         handleQuantityInputChange={handleQuantityInputChange}
         handleQuantityInputKeyDown={handleQuantityInputKeyDown}
         handlePrimarySaveAction={handlePrimarySaveAction}
-        handleCharge={handleCharge}
+        onCharge={handleChargeClick}
         onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
         onSaveTicket={() => setIsSaveModalOpen(true)}
         printers={printers}

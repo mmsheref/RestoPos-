@@ -17,7 +17,7 @@ export interface Receipt {
   date: Date;
   items: OrderItem[];
   total: number;
-  paymentMethod: 'Cash' | 'Card';
+  paymentMethod: 'Cash' | 'Card' | 'QR';
 }
 
 export interface SavedTicket {
