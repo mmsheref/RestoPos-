@@ -528,9 +528,9 @@ const SalesScreen: React.FC = () => {
                   <motion.div
                     drag="x"
                     dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={{ left: 0.7, right: 0.1 }}
+                    dragElastic={{ left: 0.5, right: 0.05 }}
                     onDragEnd={(e, { offset }) => {
-                      if (offset.x < -100) {
+                      if (offset.x < -150) {
                         deleteLineItem(item.id);
                       }
                     }}
