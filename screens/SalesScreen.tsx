@@ -21,7 +21,8 @@ type SalesView = 'grid' | 'payment';
 const SalesScreen: React.FC = () => {
   const { 
       setHeaderTitle, openDrawer, settings, printers, addReceipt, 
-      items, categories, setCategories, addCategory
+      items, categories, setCategories, addCategory,
+      savedTickets, saveTicket, removeTicket
   } = useAppContext();
 
   // Main screen view state
@@ -42,7 +43,7 @@ const SalesScreen: React.FC = () => {
   
   // Ticket management state
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
-  const [savedTickets, setSavedTickets] = useState<SavedTicket[]>([]);
+  // Local savedTickets state removed in favor of Context state
   const [editingTicket, setEditingTicket] = useState<SavedTicket | null>(null);
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<string>('');
@@ -189,9 +190,8 @@ const SalesScreen: React.FC = () => {
   
   const handlePrimarySaveAction = () => {
     if (editingTicket) {
-      setSavedTickets(savedTickets.map(t => 
-        t.id === editingTicket.id ? { ...t, items: currentOrder } : t
-      ));
+      // Update existing ticket via context
+      saveTicket({ ...editingTicket, items: currentOrder });
       setCurrentOrder([]);
       setEditingTicket(null);
     } else {
@@ -201,10 +201,9 @@ const SalesScreen: React.FC = () => {
 
   const handleSaveTicketFromModal = (name: string) => {
     if (editingTicket) {
-      setSavedTickets(savedTickets.map(t => t.id === editingTicket.id ? { ...t, name, items: currentOrder } : t));
+       saveTicket({ ...editingTicket, name, items: currentOrder });
     } else {
-      const newTicket: SavedTicket = { id: `T${Date.now()}`, name, items: currentOrder };
-      setSavedTickets([...savedTickets, newTicket]);
+       saveTicket({ id: `T${Date.now()}`, name, items: currentOrder });
     }
     setCurrentOrder([]);
     setEditingTicket(null);
@@ -222,7 +221,7 @@ const SalesScreen: React.FC = () => {
   
   const handleDeleteTicket = (ticketId: string) => {
     if (window.confirm("Are you sure you want to delete this ticket permanently?")) {
-      setSavedTickets(savedTickets.filter(t => t.id !== ticketId));
+      removeTicket(ticketId);
       if (editingTicket && editingTicket.id === ticketId) {
         setCurrentOrder([]);
         setEditingTicket(null);
@@ -242,7 +241,7 @@ const SalesScreen: React.FC = () => {
     const changeDue = tendered - total;
 
     if (editingTicket) {
-      setSavedTickets(prev => prev.filter(t => t.id !== editingTicket.id));
+      removeTicket(editingTicket.id);
     }
     
     addReceipt({

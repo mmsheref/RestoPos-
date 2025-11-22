@@ -1,6 +1,6 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
-import { Printer, Receipt, Item, AppSettings, BackupData } from '../types';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -11,13 +11,11 @@ type Theme = 'light' | 'dark';
 // --- Initial Seed Data ---
 const INITIAL_CATEGORIES = ['Appetizers', 'Main Courses', 'Desserts', 'Beverages', 'Sides'];
 
+// Updated Initial Items structure
 const INITIAL_ITEMS: Item[] = [
-    { id: 'a1', name: 'Spring Rolls', price: 150.00, category: 'Appetizers', stock: 100, imageUrl: 'https://picsum.photos/id/10/200/200' },
-    { id: 'a2', name: 'Garlic Bread', price: 120.00, category: 'Appetizers', stock: 100, imageUrl: 'https://picsum.photos/id/20/200/200' },
-    { id: 'm1', name: 'Steak Frites', price: 650.00, category: 'Main Courses', stock: 50, imageUrl: 'https://picsum.photos/id/40/200/200' },
-    { id: 'm2', name: 'Veg Noodles', price: 250.00, category: 'Main Courses', stock: 60, imageUrl: 'https://picsum.photos/id/50/200/200' },
-    { id: 'd1', name: 'Cheesecake', price: 220.00, category: 'Desserts', stock: 20, imageUrl: 'https://picsum.photos/id/70/200/200' },
-    { id: 'b1', name: 'Coke', price: 60.00, category: 'Beverages', stock: 200, imageUrl: 'https://picsum.photos/id/90/200/200' },
+    { id: 'a1', name: 'Spring Rolls', price: 150.00, category: 'Appetizers', stock: 100, representation: 'image', imageUrl: 'https://picsum.photos/id/10/200/200' },
+    { id: 'm1', name: 'Steak Frites', price: 650.00, category: 'Main Courses', stock: 50, representation: 'image', imageUrl: 'https://picsum.photos/id/40/200/200' },
+    { id: 'b1', name: 'Coke', price: 60.00, category: 'Beverages', stock: 200, representation: 'color', color: '#EF4444', shape: 'circle' },
 ];
 
 const DEFAULT_SETTINGS: AppSettings = { taxEnabled: true, taxRate: 5, storeName: 'My Restaurant' };
@@ -48,10 +46,15 @@ interface AppContextType {
   addItem: (item: Item) => void;
   updateItem: (item: Item) => void;
   deleteItem: (id: string) => void;
+  importItems: (newItems: Item[]) => void;
   
   categories: string[];
   setCategories: (categories: string[]) => void; 
   addCategory: (name: string) => void;
+
+  savedTickets: SavedTicket[];
+  saveTicket: (ticket: SavedTicket) => void;
+  removeTicket: (ticketId: string) => void;
 
   // Backup
   exportData: () => void;
@@ -82,6 +85,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
   const [items, setItemsState] = useState<Item[]>([]);
   const [categories, setCategoriesState] = useState<string[]>([]);
+  const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   
   // --- Initialize & Load Data ---
   useEffect(() => {
@@ -89,17 +93,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         await DB.initDB();
         
+        const isInitialized = await DB.getIsInitialized();
+        console.log("Database initialized check:", isInitialized);
+
         // Load data in parallel
-        const [loadedItems, loadedReceipts, loadedPrinters, loadedSettings, loadedCategories] = await Promise.all([
+        const [
+            loadedItems, 
+            loadedReceipts, 
+            loadedPrinters, 
+            loadedSettings, 
+            loadedCategories,
+            loadedTickets
+        ] = await Promise.all([
             DB.getAllItems(),
             DB.getAllReceipts(),
             DB.getAllPrinters(),
             DB.getSettings(),
-            DB.getCategories()
+            DB.getCategories(),
+            DB.getAllSavedTickets()
         ]);
 
-        // Seed Initial Data if empty
-        if (loadedItems.length === 0 && loadedCategories === undefined) {
+        // Seed Initial Data ONLY if not initialized before
+        if (!isInitialized) {
              console.log("Seeding Database...");
              // Seed Items
              for (const item of INITIAL_ITEMS) await DB.putItem(item);
@@ -112,16 +127,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
              // Seed Settings
              await DB.saveSettings(DEFAULT_SETTINGS);
              setSettingsState(DEFAULT_SETTINGS);
+
+             // Mark as initialized so we don't seed again
+             await DB.setInitialized();
         } else {
+             // Normal Load
              setItemsState(loadedItems);
-             setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
-             setPrintersState(loadedPrinters);
-             setSettingsState(loadedSettings || DEFAULT_SETTINGS);
              setCategoriesState(loadedCategories || INITIAL_CATEGORIES);
+             setSettingsState(loadedSettings || DEFAULT_SETTINGS);
         }
+
+        // Always load these
+        setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime()));
+        setPrintersState(loadedPrinters);
+        setSavedTicketsState(loadedTickets);
 
       } catch (e) {
         console.error("Failed to initialize database:", e);
+        alert("Critical Error: Database initialization failed. Some features may not work.");
       } finally {
         setIsLoading(false);
       }
@@ -131,14 +154,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
 
-  // --- Logic Wrappers ---
+  // --- Logic Wrappers with Robust Error Handling (Optimistic UI) ---
 
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // Optimistic UI update
-    setReceiptsState(prev => [receipt, ...prev]);
-    // DB Update
-    await DB.addReceipt(receipt);
-  }, []);
+    const prev = receipts;
+    setReceiptsState(curr => [receipt, ...curr]);
+    try {
+        await DB.addReceipt(receipt);
+    } catch (e) {
+        console.error("Failed to save receipt", e);
+        setReceiptsState(prev);
+        alert("Failed to save receipt to database.");
+    }
+  }, [receipts]);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
@@ -154,71 +182,198 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [theme]);
 
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
+    const prev = settings;
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
-    await DB.saveSettings(updated);
+    try {
+        await DB.saveSettings(updated);
+    } catch (e) {
+        setSettingsState(prev);
+        console.error("Failed to save settings", e);
+    }
   }, [settings]);
 
   const addPrinter = useCallback(async (printer: Printer) => {
-    setPrintersState(prev => [...prev, printer]);
-    await DB.putPrinter(printer);
-  }, []);
+    const prev = printers;
+    setPrintersState(curr => [...curr, printer]);
+    try {
+        await DB.putPrinter(printer);
+    } catch (e) {
+        setPrintersState(prev);
+        alert("Failed to save printer.");
+    }
+  }, [printers]);
 
   const removePrinter = useCallback(async (printerId: string) => {
-    setPrintersState(prev => prev.filter(p => p.id !== printerId));
-    await DB.deletePrinter(printerId);
-  }, []);
+    const prev = printers;
+    setPrintersState(curr => curr.filter(p => p.id !== printerId));
+    try {
+        await DB.deletePrinter(printerId);
+    } catch (e) {
+        setPrintersState(prev);
+        alert("Failed to delete printer.");
+    }
+  }, [printers]);
 
   // --- Item Management ---
   const addItem = useCallback(async (item: Item) => {
-    setItemsState(prev => [...prev, item]);
-    await DB.putItem(item);
+    const itemWithId = { ...item, id: item.id || crypto.randomUUID() };
+    
+    setItemsState(curr => [...curr, itemWithId]);
+    try {
+        await DB.putItem(itemWithId);
+    } catch (e) {
+        // Revert
+        setItemsState(curr => curr.filter(i => i.id !== itemWithId.id));
+        alert("Failed to add item.");
+        console.error(e);
+    }
   }, []);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
-    setItemsState(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-    await DB.putItem(updatedItem);
+    setItemsState(curr => curr.map(item => item.id === updatedItem.id ? updatedItem : item));
+    try {
+        await DB.putItem(updatedItem);
+    } catch (e) {
+        alert("Failed to update item.");
+        console.error(e);
+        // Reload from DB to ensure state consistency
+        const dbItems = await DB.getAllItems();
+        setItemsState(dbItems);
+    }
   }, []);
 
   const deleteItem = useCallback(async (id: string) => {
-    setItemsState(prev => prev.filter(item => item.id !== id));
-    await DB.deleteItem(id);
+    console.log("[AppContext] Deleting item with ID:", id);
+    
+    // 1. Optimistic Update (Immediate UI response)
+    setItemsState(curr => {
+        const remaining = curr.filter(item => item.id !== id);
+        return remaining;
+    });
+
+    try {
+        // 2. DB Update
+        await DB.deleteItem(id);
+    } catch (e) {
+        console.error("[AppContext] Failed to delete item from DB", e);
+        alert("Failed to delete item from database. The list will refresh.");
+        
+        // 3. Rollback on failure
+        const dbItems = await DB.getAllItems();
+        setItemsState(dbItems);
+    }
   }, []);
+  
+  // Import multiple items (e.g. from CSV)
+  const importItems = useCallback(async (newItems: Item[]) => {
+      setItemsState(curr => {
+          // Merge logic: replace if ID exists, else add
+          const map = new Map(curr.map(i => [i.id, i]));
+          newItems.forEach(i => map.set(i.id, i));
+          return Array.from(map.values());
+      });
+      
+      try {
+          for (const item of newItems) {
+              await DB.putItem(item);
+          }
+          
+          // Also update categories if new ones found
+          const newCats = new Set(categories);
+          newItems.forEach(i => {
+              if(i.category) newCats.add(i.category);
+          });
+          
+          const newCatsArray = Array.from(newCats);
+          if(newCatsArray.length > categories.length) {
+             setCategoriesState(newCatsArray);
+             await DB.saveCategories(newCatsArray);
+          }
+          
+      } catch(e) {
+          console.error("Bulk import failed", e);
+          alert("Error importing items into database.");
+      }
+  }, [categories]);
 
   // --- Category Management ---
   const setCategories = useCallback(async (newCategories: string[]) => {
+      const prev = categories;
       setCategoriesState(newCategories);
-      await DB.saveCategories(newCategories);
-  }, []);
-
-  const addCategory = useCallback(async (name: string) => {
-      const newCats = categories.includes(name) ? categories : [...categories, name];
-      setCategoriesState(newCats);
-      await DB.saveCategories(newCats);
+      try {
+        await DB.saveCategories(newCategories);
+      } catch (e) {
+          setCategoriesState(prev);
+          alert("Failed to update categories.");
+      }
   }, [categories]);
 
+  const addCategory = useCallback(async (name: string) => {
+      if (categories.includes(name)) return;
+      const prev = categories;
+      const newCats = [...categories, name];
+      setCategoriesState(newCats);
+      try {
+          await DB.saveCategories(newCats);
+      } catch (e) {
+          setCategoriesState(prev);
+          alert("Failed to save category.");
+      }
+  }, [categories]);
+
+  // --- Ticket Management ---
+  const saveTicket = useCallback(async (ticket: SavedTicket) => {
+      setSavedTicketsState(curr => {
+          const exists = curr.find(t => t.id === ticket.id);
+          if (exists) {
+              return curr.map(t => t.id === ticket.id ? ticket : t);
+          }
+          return [...curr, ticket];
+      });
+      try {
+          await DB.putSavedTicket(ticket);
+      } catch (e) {
+           alert("Failed to save ticket.");
+           const dbTickets = await DB.getAllSavedTickets();
+           setSavedTicketsState(dbTickets);
+      }
+  }, []);
+
+  const removeTicket = useCallback(async (ticketId: string) => {
+      setSavedTicketsState(curr => curr.filter(t => t.id !== ticketId));
+      try {
+          await DB.deleteSavedTicket(ticketId);
+      } catch (e) {
+          alert("Failed to delete ticket.");
+          const dbTickets = await DB.getAllSavedTickets();
+          setSavedTicketsState(dbTickets);
+      }
+  }, []);
 
   // --- Backup & Restore ---
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '1.0',
+        version: '4.0',
         timestamp: new Date().toISOString(),
         settings,
         items,
         categories,
         printers,
-        receipts
+        receipts,
+        savedTickets
     };
     
     const jsonString = JSON.stringify(backup, null, 2);
-    const fileName = `pos_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `pos_backup_${dateStr}.json`;
 
     if (Capacitor.isNativePlatform()) {
       try {
         const result = await Filesystem.writeFile({
           path: fileName,
           data: jsonString,
-          directory: Directory.Cache,
+          directory: Directory.Documents,
           encoding: Encoding.UTF8
         });
 
@@ -226,9 +381,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           title: 'Restaurant POS Backup',
           text: `Backup created on ${new Date().toLocaleDateString()}`,
           url: result.uri, 
-          dialogTitle: 'Save Backup File'
+          dialogTitle: 'Save/Share Backup File'
         });
 
+        alert(`Backup saved successfully!`);
       } catch (error: any) {
         console.error("Export Failed:", error);
         alert(`Export Failed: ${error.message || error}`);
@@ -242,33 +398,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       downloadAnchorNode.click();
       downloadAnchorNode.remove();
     }
-  }, [settings, items, categories, printers, receipts]);
+  }, [settings, items, categories, printers, receipts, savedTickets]);
 
   const restoreData = useCallback(async (data: BackupData) => {
       setIsLoading(true);
       try {
           await DB.clearDatabase();
           
-          // Helper to restore parsed receipts (dates are strings in JSON)
           const restoredReceipts = (data.receipts || []).map(r => ({
               ...r,
               date: new Date(r.date)
           }));
 
-          // Bulk Insert to DB
           await DB.saveSettings(data.settings);
           await DB.saveCategories(data.categories);
           
           for(const p of (data.printers || [])) await DB.putPrinter(p);
           for(const i of (data.items || [])) await DB.putItem(i);
           for(const r of restoredReceipts) await DB.addReceipt(r);
+          for(const t of (data.savedTickets || [])) await DB.putSavedTicket(t);
 
-          // Update State
+          await DB.setInitialized();
+
           setSettingsState(data.settings);
           setItemsState(data.items || []);
           setCategoriesState(data.categories || []);
           setPrintersState(data.printers || []);
           setReceiptsState(restoredReceipts);
+          setSavedTicketsState(data.savedTickets || []);
 
       } catch(e) {
           console.error("Restore failed", e);
@@ -283,7 +440,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
   
-  // Show a loading screen or simple fallback until DB is ready
   if (isLoading) {
       return (
           <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -304,8 +460,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       settings, updateSettings,
       printers, addPrinter, removePrinter,
       receipts, addReceipt,
-      items, addItem, updateItem, deleteItem,
+      items, addItem, updateItem, deleteItem, importItems,
       categories, setCategories, addCategory,
+      savedTickets, saveTicket, removeTicket,
       exportData, restoreData
     }}>
       {children}

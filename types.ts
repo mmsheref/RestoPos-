@@ -4,8 +4,14 @@ export interface Item {
   name: string;
   category: string;
   price: number;
+  cost?: number; // New field
   stock: number;
-  imageUrl: string;
+  
+  // Representation
+  representation: 'image' | 'color'; // New field
+  imageUrl?: string;
+  color?: string; // Hex code
+  shape?: 'square' | 'circle'; // Basic shapes
 }
 
 export interface OrderItem extends Item {
@@ -51,4 +57,5 @@ export interface BackupData {
   categories: string[];
   printers: Printer[];
   receipts: Receipt[];
+  savedTickets?: SavedTicket[];
 }

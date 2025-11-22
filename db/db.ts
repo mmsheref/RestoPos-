@@ -1,6 +1,6 @@
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
-import { Item, Receipt, Printer, AppSettings } from '../types';
+import { Item, Receipt, Printer, AppSettings, SavedTicket } from '../types';
 
 interface POSDB extends DBSchema {
   items: {
@@ -21,33 +21,45 @@ interface POSDB extends DBSchema {
     key: string;
     value: any;
   };
+  saved_tickets: {
+    key: string;
+    value: SavedTicket;
+  }
 }
 
 const DB_NAME = 'pos_db';
-const DB_VERSION = 1;
+const DB_VERSION = 4; // Bumped for new Item fields (cost, representation)
 
 let dbPromise: Promise<IDBPDatabase<POSDB>>;
 
 export const initDB = () => {
   if (!dbPromise) {
     dbPromise = openDB<POSDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion, newVersion, transaction) {
         // Items Store
         if (!db.objectStoreNames.contains('items')) {
           db.createObjectStore('items', { keyPath: 'id' });
         }
+        
         // Receipts Store
         if (!db.objectStoreNames.contains('receipts')) {
           const receiptStore = db.createObjectStore('receipts', { keyPath: 'id' });
           receiptStore.createIndex('by-date', 'date');
         }
+        
         // Printers Store
         if (!db.objectStoreNames.contains('printers')) {
           db.createObjectStore('printers', { keyPath: 'id' });
         }
-        // Config Store (Settings, Categories)
+        
+        // Config Store
         if (!db.objectStoreNames.contains('config')) {
           db.createObjectStore('config');
+        }
+        
+        // Saved Tickets Store
+        if (!db.objectStoreNames.contains('saved_tickets')) {
+          db.createObjectStore('saved_tickets', { keyPath: 'id' });
         }
       },
     });
@@ -119,6 +131,33 @@ export const saveCategories = async (categories: string[]) => {
   return db.put('config', categories, 'categories');
 };
 
+export const getIsInitialized = async (): Promise<boolean> => {
+    const db = await initDB();
+    return (await db.get('config', 'is_initialized')) || false;
+};
+
+export const setInitialized = async () => {
+    const db = await initDB();
+    await db.put('config', true, 'is_initialized');
+};
+
+// --- Saved Tickets Helpers ---
+
+export const getAllSavedTickets = async () => {
+  const db = await initDB();
+  return db.getAll('saved_tickets');
+};
+
+export const putSavedTicket = async (ticket: SavedTicket) => {
+  const db = await initDB();
+  return db.put('saved_tickets', ticket);
+};
+
+export const deleteSavedTicket = async (id: string) => {
+  const db = await initDB();
+  return db.delete('saved_tickets', id);
+};
+
 // --- Bulk Ops for Restore ---
 
 export const clearDatabase = async () => {
@@ -127,4 +166,5 @@ export const clearDatabase = async () => {
     await db.clear('receipts');
     await db.clear('printers');
     await db.clear('config');
+    await db.clear('saved_tickets');
 }
