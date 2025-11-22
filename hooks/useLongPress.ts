@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 
 // --- Helper Hook for Long Press ---
 export const useLongPress = (

@@ -33,7 +33,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
 
   return (
-    <div className="relative h-screen w-screen overflow-hidden bg-gray-100 dark:bg-gray-900 flex flex-col">
+    <div className="relative h-screen w-full overflow-x-hidden bg-gray-100 dark:bg-gray-900 flex flex-col">
       {!isSalesScreen && <Header 
         title={finalTitle} 
         onMenuClick={openDrawer}

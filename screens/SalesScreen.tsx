@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { OrderItem, SavedTicket } from '../types';
@@ -292,14 +291,16 @@ const SalesScreen: React.FC = () => {
 
   const itemsForGrid = useMemo(() => {
     const itemsToDisplay = searchQuery.trim() ? searchResults : (itemsByTab[activeTab] || []);
-    const displayItems = new Array(GRID_SIZE).fill(null);
+    // FIX: Explicitly type displayItems to prevent `item` from being `unknown` in the map function below.
+    const displayItems: ({ id: string; name: string; price: number; } | null)[] = new Array(GRID_SIZE).fill(null);
     for (let i = 0; i < Math.min(itemsToDisplay.length, GRID_SIZE); i++) {
       displayItems[i] = itemsToDisplay[i];
     }
     return displayItems;
   }, [activeTab, itemsByTab, searchQuery, searchResults]);
   
-  const TabButton = ({ tab }: { tab: string }) => {
+  // FIX: Explicitly type TabButton as a React.FC to ensure TS correctly handles the `key` prop.
+  const TabButton: React.FC<{ tab: string }> = ({ tab }) => {
     const longPressProps = useLongPress(
       () => openEditModal(tab),
       () => setActiveTab(tab)

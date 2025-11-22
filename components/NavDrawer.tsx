@@ -33,7 +33,7 @@ const NavDrawer: React.FC = () => {
         initial="closed"
         animate={isDrawerOpen ? 'open' : 'closed'}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="fixed top-0 left-0 h-full w-64 bg-gray-800 dark:bg-slate-900 text-white z-40 flex flex-col shadow-2xl"
+        className="fixed top-0 left-0 h-screen w-64 bg-gray-800 dark:bg-slate-900 text-white z-40 flex flex-col shadow-2xl"
       >
         <div className="p-6 border-b border-gray-700 dark:border-gray-800">
           <h2 className="text-2xl font-bold text-white">POS Menu</h2>
