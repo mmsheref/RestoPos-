@@ -25,3 +25,14 @@ export interface SavedTicket {
   name: string;
   items: OrderItem[];
 }
+
+export type PrinterInterfaceType = 'Bluetooth' | 'Ethernet' | 'USB';
+export type PrinterPaperWidth = '58mm' | '80mm';
+
+export interface Printer {
+  id: string;
+  name: string;
+  interfaceType: PrinterInterfaceType;
+  paperWidth: PrinterPaperWidth;
+  address?: string; // MAC address (BT) or IP (Ethernet)
+}

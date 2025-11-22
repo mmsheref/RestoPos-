@@ -287,6 +287,56 @@ const SalesScreen: React.FC = () => {
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
 
+  const handleTicketAction = (action: 'clear' | 'print' | 'edit' | 'assign' | 'split' | 'move' | 'drawer') => {
+    setTicketMenuOpen(false);
+    
+    switch (action) {
+      case 'clear':
+        if (currentOrder.length === 0 && !editingTicket) return;
+        if (window.confirm("Are you sure you want to clear the current order? All unsaved items will be lost.")) {
+          setCurrentOrder([]);
+          setEditingTicket(null);
+          setEditingQuantityItemId(null);
+        }
+        break;
+      
+      case 'print':
+        if (currentOrder.length === 0) {
+           alert("Ticket is empty. Nothing to print.");
+           return;
+        }
+        // Simulation of printing
+        const billText = currentOrder.map(i => `${i.quantity}x ${i.name.padEnd(20)} ${(i.price * i.quantity).toFixed(2)}`).join('\n');
+        alert(`🖨️ Printing Bill ${editingTicket ? `(${editingTicket.name})` : ''}...\n\n${billText}\n\n----------------\nTotal: ₹${total.toFixed(2)}`);
+        break;
+
+      case 'edit':
+        // Opens the save modal to allow renaming or adding details
+        if (currentOrder.length === 0 && !editingTicket) {
+           alert("No ticket to edit.");
+           return;
+        }
+        setIsSaveModalOpen(true);
+        break;
+
+      case 'assign':
+        alert("Feature 'Assign Ticket' (Tables/Waiters) is coming soon!");
+        break;
+        
+      case 'split':
+        alert("Feature 'Split Ticket' is coming soon!");
+        break;
+        
+      case 'move':
+        alert("Feature 'Move Ticket' is coming soon!");
+        break;
+        
+      case 'drawer':
+        alert("Feature 'Open Cash Drawer' is coming soon!");
+        break;
+    }
+  };
+
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) {
         return [];
@@ -299,7 +349,6 @@ const SalesScreen: React.FC = () => {
 
   const itemsForGrid = useMemo(() => {
     const itemsToDisplay = searchQuery.trim() ? searchResults : (itemsByTab[activeTab] || []);
-    // FIX: Explicitly type displayItems to prevent `item` from being `unknown` in the map function below.
     const displayItems: ({ id: string; name: string; price: number; } | null)[] = new Array(GRID_SIZE).fill(null);
     for (let i = 0; i < Math.min(itemsToDisplay.length, GRID_SIZE); i++) {
       displayItems[i] = itemsToDisplay[i];
@@ -307,7 +356,6 @@ const SalesScreen: React.FC = () => {
     return displayItems;
   }, [activeTab, itemsByTab, searchQuery, searchResults]);
   
-  // FIX: Explicitly type TabButton as a React.FC to ensure TS correctly handles the `key` prop.
   const TabButton: React.FC<{ tab: string }> = ({ tab }) => {
     const longPressProps = useLongPress(
       () => openEditModal(tab),
@@ -470,7 +518,7 @@ const SalesScreen: React.FC = () => {
 
       {/* Ticket Section */}
       <section className="w-[30%] bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 flex flex-col">
-        <header className="bg-white dark:bg-slate-800 shadow-sm w-full z-10 flex-shrink-0 h-16 flex items-center justify-between px-4 border-b dark:border-slate-700">
+        <header className="bg-white dark:bg-slate-800 shadow-sm w-full z-30 flex-shrink-0 h-16 flex items-center justify-between px-4 border-b dark:border-slate-700">
           <h1 className="text-xl font-semibold text-gray-800 dark:text-slate-100">{ticketHeaderTitle}</h1>
           <div className="relative" ref={ticketMenuRef}>
             <button onClick={() => setTicketMenuOpen(prev => !prev)} className="p-2 text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white" aria-label="Ticket options">
@@ -485,14 +533,14 @@ const SalesScreen: React.FC = () => {
                         className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20"
                     >
                         <div className="py-1">
-                            <a href="#" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Clear Ticket</a>
-                            <a href="#" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Print Bill</a>
-                            <a href="#" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Edit Ticket</a>
-                            <a href="#" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Assign Ticket</a>
-                            <a href="#" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Split Ticket</a>
-                            <a href="#" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Move Ticket</a>
+                            <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Clear Ticket</button>
+                            <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Print Bill</button>
+                            <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Edit Ticket Details</button>
+                            <button onClick={() => handleTicketAction('assign')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Assign Ticket</button>
+                            <button onClick={() => handleTicketAction('split')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Split Ticket</button>
+                            <button onClick={() => handleTicketAction('move')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Move Ticket</button>
                             <div className="border-t my-1 dark:border-slate-600"></div>
-                            <a href="#" className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Open Cash Drawer</a>
+                            <button onClick={() => handleTicketAction('drawer')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Open Cash Drawer</button>
                         </div>
                     </motion.div>
                 )}

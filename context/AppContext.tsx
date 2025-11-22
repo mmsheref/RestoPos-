@@ -1,5 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import { Printer } from '../types';
 
 type Theme = 'light' | 'dark';
 
@@ -19,6 +20,9 @@ interface AppContextType {
   setTheme: (theme: Theme) => void;
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
+  printers: Printer[];
+  addPrinter: (printer: Printer) => void;
+  removePrinter: (printerId: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -55,10 +59,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return { taxEnabled: true, taxRate: 5 };
   });
 
+  // Printer State
+  const [printers, setPrinters] = useState<Printer[]>(() => {
+    if (typeof window !== 'undefined') {
+      const storedPrinters = localStorage.getItem('printers');
+      if (storedPrinters) {
+        try {
+          return JSON.parse(storedPrinters);
+        } catch (e) {
+          console.error("Failed to parse printers", e);
+        }
+      }
+    }
+    return [];
+  });
+
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings(prev => {
       const updated = { ...prev, ...newSettings };
       localStorage.setItem('appSettings', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const addPrinter = useCallback((printer: Printer) => {
+    setPrinters(prev => {
+      const updated = [...prev, printer];
+      localStorage.setItem('printers', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const removePrinter = useCallback((printerId: string) => {
+    setPrinters(prev => {
+      const updated = prev.filter(p => p.id !== printerId);
+      localStorage.setItem('printers', JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -82,7 +117,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
       theme, setTheme,
-      settings, updateSettings
+      settings, updateSettings,
+      printers, addPrinter, removePrinter
     }}>
       {children}
     </AppContext.Provider>
