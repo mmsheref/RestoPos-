@@ -42,6 +42,8 @@ export interface AppSettings {
   taxEnabled: boolean;
   taxRate: number;
   storeName?: string;
+  storeAddress?: string;
+  receiptFooter?: string;
 }
 
 export interface CustomGrid {

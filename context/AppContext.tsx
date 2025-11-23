@@ -9,7 +9,13 @@ import { exportItemsToCsv } from '../utils/csvHelper';
 
 type Theme = 'light' | 'dark';
 
-const DEFAULT_SETTINGS: AppSettings = { taxEnabled: true, taxRate: 5, storeName: 'My Restaurant' };
+const DEFAULT_SETTINGS: AppSettings = { 
+    taxEnabled: true, 
+    taxRate: 5, 
+    storeName: 'My Restaurant',
+    storeAddress: '123 Food Street, Flavor Town',
+    receiptFooter: 'Follow us @myrestaurant'
+};
 
 interface AppContextType {
   isDrawerOpen: boolean;

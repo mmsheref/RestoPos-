@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
-import { printReceipt } from '../../utils/printerHelper';
+import { printBill } from '../../utils/printerHelper';
 
 // Define a leaner item type for what addToOrder expects from the grid
 type SimpleItem = { id: string; name: string; price: number };
@@ -103,10 +103,18 @@ const Ticket: React.FC<TicketProps> = (props) => {
         }
         try {
           const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-          await printReceipt(currentOrder, total, printer);
+          await printBill({
+            items: currentOrder,
+            total,
+            subtotal,
+            tax,
+            ticketName: editingTicket?.name,
+            settings,
+            printer,
+          });
         } catch (e) {
           console.error("An unexpected error occurred while trying to print:", e);
-          let errorMessage = "Could not print the ticket due to an unexpected error.";
+          let errorMessage = "Could not print the bill due to an unexpected error.";
           if (e instanceof Error) errorMessage += `\nDetails: ${e.message}`;
           alert(errorMessage);
         }

@@ -42,7 +42,7 @@ const SalesScreen: React.FC = () => {
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
   // Payment state
-  const [paymentResult, setPaymentResult] = useState<{ method: 'Cash' | 'QR', change: number } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ method: 'Cash' | 'QR', change: number, receiptId: string } | null>(null);
 
   // Modal states
   const [isManageGridsModalOpen, setIsManageGridsModalOpen] = useState(false);
@@ -107,8 +107,9 @@ const SalesScreen: React.FC = () => {
   
   const handleProcessPayment = (method: 'Cash' | 'QR', tendered: number) => {
     if (editingTicket) removeTicket(editingTicket.id);
-    addReceipt({ id: `R${Date.now()}`, date: new Date(), items: currentOrder, total, paymentMethod: method });
-    setPaymentResult({ method, change: tendered - total });
+    const receiptId = `R${Date.now()}`;
+    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, paymentMethod: method });
+    setPaymentResult({ method, change: tendered - total, receiptId });
   };
   
   const handleNewSale = () => {
