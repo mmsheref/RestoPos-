@@ -220,7 +220,7 @@ const SalesScreen: React.FC = () => {
         <button onClick={() => setIsTicketVisible(true)} className="md:hidden fixed bottom-4 right-4 bg-blue-600 text-white font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 z-20">
             <ReceiptIcon className="h-5 w-5" />
             <span>View Order ({currentOrder.reduce((acc, item) => acc + item.quantity, 0)})</span>
-            <span className="font-mono bg-blue-700/50 px-2 py-0.5 rounded-full text-sm">₹{total.toFixed(2)}</span>
+            <span className="font-mono bg-blue-700/50 px-2 py-0.5 rounded-full text-sm">{total.toFixed(2)}</span>
         </button>
       )}
 

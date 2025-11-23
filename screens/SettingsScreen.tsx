@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrashIcon } from '../constants';
@@ -240,7 +241,7 @@ const SettingsScreen: React.FC = () => {
 
             <div className="flex justify-between items-center border-t dark:border-gray-700 pt-4">
               <label htmlFor="currency" className="text-gray-700 dark:text-gray-300">Currency Symbol</label>
-              <input id="currency" type="text" defaultValue="₹" disabled className="p-2 border rounded-md w-1/2 bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700 cursor-not-allowed" />
+              <input id="currency" type="text" disabled className="p-2 border rounded-md w-1/2 bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700 cursor-not-allowed" />
             </div>
           </div>
         </div>
