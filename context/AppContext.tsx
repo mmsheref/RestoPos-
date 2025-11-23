@@ -129,13 +129,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // --- Logic Wrappers with Robust Error Handling (Optimistic UI) ---
 
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    const prev = receipts;
+    const prevReceipts = receipts;
     setReceiptsState(curr => [receipt, ...curr]);
     try {
         await DB.addReceipt(receipt);
     } catch (e) {
         console.error("Failed to save receipt", e);
-        setReceiptsState(prev);
+        setReceiptsState(prevReceipts);
         alert("Failed to save receipt to database.");
     }
   }, [receipts]);
@@ -154,109 +154,157 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [theme]);
 
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
-    const prev = settings;
+    const prevSettings = settings;
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
     try {
         await DB.saveSettings(updated);
     } catch (e) {
-        setSettingsState(prev);
+        setSettingsState(prevSettings);
         console.error("Failed to save settings", e);
     }
   }, [settings]);
 
   const addPrinter = useCallback(async (printer: Printer) => {
-    const prev = printers;
+    const prevPrinters = printers;
     setPrintersState(curr => [...curr, printer]);
     try {
         await DB.putPrinter(printer);
     } catch (e) {
-        setPrintersState(prev);
+        setPrintersState(prevPrinters);
         alert("Failed to save printer.");
     }
   }, [printers]);
 
   const removePrinter = useCallback(async (printerId: string) => {
-    const prev = printers;
+    const prevPrinters = printers;
     setPrintersState(curr => curr.filter(p => p.id !== printerId));
     try {
         await DB.deletePrinter(printerId);
     } catch (e) {
-        setPrintersState(prev);
+        setPrintersState(prevPrinters);
         alert("Failed to delete printer.");
     }
   }, [printers]);
 
   // --- Item Management ---
   const addItem = useCallback(async (item: Item) => {
+    const prevItems = items;
     setItemsState(curr => [...curr, item]);
-    try { await DB.putItem(item); } catch (e) { alert("Failed to add item."); }
-  }, []);
+    try { 
+      await DB.putItem(item); 
+    } catch (e) { 
+      setItemsState(prevItems);
+      console.error("Failed to add item", e);
+      alert("Failed to add item.");
+    }
+  }, [items]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
+    const prevItems = items;
     setItemsState(curr => curr.map(item => item.id === updatedItem.id ? updatedItem : item));
-    try { await DB.putItem(updatedItem); } catch (e) { alert("Failed to update item."); }
-  }, []);
+    try { 
+      await DB.putItem(updatedItem); 
+    } catch (e) { 
+      setItemsState(prevItems);
+      console.error("Failed to update item", e);
+      alert("Failed to update item.");
+    }
+  }, [items]);
 
   const deleteItem = useCallback(async (id: string) => {
+    const prevItems = items;
+    setItemsState(curr => curr.filter(item => item.id !== id));
     try {
         await DB.deleteItem(id);
-        setItemsState(curr => curr.filter(item => item.id !== id));
     } catch (e) {
-        alert("Failed to delete item from database. The item will reappear on refresh.");
+        setItemsState(prevItems);
+        console.error("Failed to delete item", e);
+        alert("Failed to delete item from database.");
     }
-  }, []);
+  }, [items]);
 
   // --- Ticket Management ---
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
+      const prevTickets = savedTickets;
       setSavedTicketsState(curr => {
           const exists = curr.find(t => t.id === ticket.id);
           return exists ? curr.map(t => t.id === ticket.id ? ticket : t) : [...curr, ticket];
       });
-      try { await DB.putSavedTicket(ticket); } catch (e) { alert("Failed to save ticket."); }
-  }, []);
+      try { 
+        await DB.putSavedTicket(ticket); 
+      } catch (e) { 
+        setSavedTicketsState(prevTickets);
+        console.error("Failed to save ticket", e);
+        alert("Failed to save ticket.");
+      }
+  }, [savedTickets]);
 
   const removeTicket = useCallback(async (ticketId: string) => {
+      const prevTickets = savedTickets;
       setSavedTicketsState(curr => curr.filter(t => t.id !== ticketId));
-      try { await DB.deleteSavedTicket(ticketId); } catch (e) { alert("Failed to delete ticket."); }
-  }, []);
+      try { 
+        await DB.deleteSavedTicket(ticketId); 
+      } catch (e) { 
+        setSavedTicketsState(prevTickets);
+        console.error("Failed to delete ticket", e);
+        alert("Failed to delete ticket.");
+      }
+  }, [savedTickets]);
 
   // --- Custom Grid Management ---
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
+      const prevGrids = customGrids;
       setCustomGridsState(curr => [...curr, grid]);
-      try { await DB.putCustomGrid(grid); } catch (e) { alert("Failed to add custom grid."); }
-  }, []);
+      try { 
+        await DB.putCustomGrid(grid); 
+      } catch (e) { 
+        setCustomGridsState(prevGrids);
+        console.error("Failed to add custom grid", e);
+        alert("Failed to add custom grid.");
+      }
+  }, [customGrids]);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
+      const prevGrids = customGrids;
       setCustomGridsState(curr => curr.map(g => g.id === grid.id ? grid : g));
-      try { await DB.putCustomGrid(grid); } catch (e) { alert("Failed to update custom grid."); }
-  }, []);
+      try { 
+        await DB.putCustomGrid(grid); 
+      } catch (e) { 
+        setCustomGridsState(prevGrids);
+        console.error("Failed to update custom grid", e);
+        alert("Failed to update custom grid.");
+      }
+  }, [customGrids]);
 
   const deleteCustomGrid = useCallback(async (id: string) => {
+      const prevGrids = customGrids;
       setCustomGridsState(curr => curr.filter(g => g.id !== id));
-      try { await DB.deleteCustomGrid(id); } catch (e) { alert("Failed to delete custom grid."); }
-  }, []);
+      try { 
+        await DB.deleteCustomGrid(id); 
+      } catch (e) { 
+        setCustomGridsState(prevGrids);
+        console.error("Failed to delete custom grid", e);
+        alert("Failed to delete custom grid.");
+      }
+  }, [customGrids]);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
-      const originalGrids = [...customGrids]; // Capture the state at the time of the call for potential rollback.
-      setCustomGridsState(newGrids); // Optimistic UI update.
+      const originalGrids = [...customGrids];
+      setCustomGridsState(newGrids);
 
       try {
           const db = await DB.initDB();
           const tx = db.transaction('custom_grids', 'readwrite');
           const store = tx.objectStore('custom_grids');
 
-          // FIX: Add a more robust path for deleting all grids by clearing the object store.
           if (newGrids.length === 0 && originalGrids.length > 0) {
               await store.clear();
           } else {
               const newGridIds = new Set(newGrids.map(g => g.id));
               const gridsToDelete = originalGrids.filter(g => !newGridIds.has(g.id));
-
-              // Batch deletes and puts within a single transaction
               const deletePromises = gridsToDelete.map(grid => store.delete(grid.id));
               const putPromises = newGrids.map(grid => store.put(grid));
-              
               await Promise.all([...deletePromises, ...putPromises]);
           }
           
@@ -264,7 +312,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       } catch (e) {
           console.error("Failed to save grid changes to DB:", e);
-          setCustomGridsState(originalGrids); // Revert UI state on failure.
+          setCustomGridsState(originalGrids);
           alert("Failed to save grid changes. Your changes have been reverted.");
       }
   }, [customGrids]);

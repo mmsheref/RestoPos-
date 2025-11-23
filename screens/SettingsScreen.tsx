@@ -7,6 +7,7 @@ import { Printer, BackupData } from '../types';
 import { testPrint } from '../utils/printerHelper';
 import AddPrinterModal from '../components/settings/AddPrinterModal';
 import ConfirmImportModal from '../components/modals/ConfirmImportModal';
+import ConfirmModal from '../components/modals/ConfirmModal';
 
 const SettingsScreen: React.FC = () => {
   const { 
@@ -22,6 +23,7 @@ const SettingsScreen: React.FC = () => {
   const [importCandidate, setImportCandidate] = useState<BackupData | null>(null);
   
   const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
+  const [printerToRemove, setPrinterToRemove] = useState<Printer | null>(null);
   
   // Refs for file inputs
   const jsonFileInputRef = useRef<HTMLInputElement>(null);
@@ -44,10 +46,11 @@ const SettingsScreen: React.FC = () => {
   const handleStoreNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       updateSettings({ storeName: e.target.value });
   };
-
-  const handleRemovePrinter = (id: string) => {
-    if (window.confirm("Remove this printer?")) {
-      removePrinter(id);
+  
+  const confirmRemovePrinter = () => {
+    if (printerToRemove) {
+      removePrinter(printerToRemove.id);
+      setPrinterToRemove(null);
     }
   };
 
@@ -270,7 +273,7 @@ const SettingsScreen: React.FC = () => {
                             {testingPrinterId === printer.id ? 'Testing...' : 'Test'}
                         </button>
                         <button 
-                          onClick={() => handleRemovePrinter(printer.id)}
+                          onClick={() => setPrinterToRemove(printer)}
                           className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                         >
                           <TrashIcon className="h-5 w-5" />
@@ -318,6 +321,16 @@ const SettingsScreen: React.FC = () => {
         onClose={() => setIsImportModalOpen(false)}
         onConfirm={handleConfirmImport}
       />
+      
+      <ConfirmModal
+        isOpen={!!printerToRemove}
+        onClose={() => setPrinterToRemove(null)}
+        onConfirm={confirmRemovePrinter}
+        title="Confirm Removal"
+        confirmText="Remove"
+      >
+        <p>Are you sure you want to remove the printer "<strong>{printerToRemove?.name}</strong>"?</p>
+      </ConfirmModal>
 
     </div>
   );
