@@ -1,6 +1,3 @@
-
-
-
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
@@ -53,6 +50,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
   
   const [isTicketMenuOpen, setTicketMenuOpen] = useState(false);
   const ticketMenuRef = useRef<HTMLDivElement>(null);
+  const listContainerRef = useRef<HTMLDivElement>(null);
+  const prevOrderLength = useRef(currentOrder.length);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -63,6 +62,21 @@ const Ticket: React.FC<TicketProps> = (props) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Bug fix 1: Auto-scroll on new item
+  useEffect(() => {
+    // Only scroll down when an item is added, not removed or quantity changed
+    if (listContainerRef.current && currentOrder.length > prevOrderLength.current) {
+        const container = listContainerRef.current;
+        // Using `setTimeout` to ensure the DOM has updated with the new item before scrolling
+        setTimeout(() => {
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }, 0);
+    }
+    // Update the ref to the current length for the next render
+    prevOrderLength.current = currentOrder.length;
+  }, [currentOrder]);
+
 
   const handleTicketAction = async (action: string) => {
     setTicketMenuOpen(false);
@@ -169,7 +183,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             )}
           </div>
       </header>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div ref={listContainerRef} className="flex-1 overflow-y-auto p-4">
           {currentOrder.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500">
               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="dark:text-slate-600"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" /><path d="M16 8h-6a2 2 0 1 0 0 4h6" /><path d="M12 14v-4" /></svg>

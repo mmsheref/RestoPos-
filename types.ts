@@ -43,6 +43,12 @@ export interface AppSettings {
   storeName?: string;
 }
 
+export interface CustomGrid {
+  id: string;
+  name: string;
+  itemIds: (string | null)[]; // Array of 20 items (5x4 grid), null for empty
+}
+
 export interface BackupData {
   version: string;
   timestamp: string;
@@ -52,4 +58,5 @@ export interface BackupData {
   printers: Printer[];
   receipts: Receipt[];
   savedTickets?: SavedTicket[];
+  customGrids?: CustomGrid[];
 }

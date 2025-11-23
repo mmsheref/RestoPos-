@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
 import ItemFormModal from '../components/modals/ItemFormModal';
+import ManageCategoriesModal from '../components/modals/ManageCategoriesModal';
 import { SearchIcon, TrashIcon } from '../constants';
 
 // UUID Generator Fallback for non-secure contexts (e.g. localhost/http)
@@ -58,10 +59,11 @@ const ItemRow = ({ item, onEdit, onDelete }: { item: Item, onEdit: (item: Item) 
 };
 
 const ItemsScreen: React.FC = () => {
-  const { items, addItem, updateItem, deleteItem, categories } = useAppContext();
+  const { items, addItem, updateItem, deleteItem, categories, setCategories } = useAppContext();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | undefined>(undefined);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   const filteredItems = useMemo(() => {
       return items.filter(i => 
@@ -111,6 +113,11 @@ const ItemsScreen: React.FC = () => {
       setIsModalOpen(false);
   };
 
+  const handleSaveCategories = (newCategories: string[]) => {
+    setCategories(newCategories);
+    setIsCategoryModalOpen(false);
+  };
+
   return (
     <div className="p-6 dark:bg-gray-900 min-h-full flex flex-col">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -126,6 +133,12 @@ const ItemsScreen: React.FC = () => {
                     className="pl-10 pr-4 py-2 border rounded-lg w-full md:w-64 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                 />
             </div>
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              className="bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex-shrink-0 shadow-sm"
+            >
+              Manage Categories
+            </button>
             <button
               onClick={handleAddItem}
               className="bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex-shrink-0 shadow-sm"
@@ -179,6 +192,14 @@ const ItemsScreen: React.FC = () => {
         }}
         initialData={editingItem}
         categories={categories}
+      />
+
+      <ManageCategoriesModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSave={handleSaveCategories}
+        initialCategories={categories}
+        allItems={items}
       />
     </div>
   );

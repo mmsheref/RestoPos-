@@ -1,5 +1,6 @@
+
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
-import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket } from '../types';
+import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -7,12 +8,6 @@ import * as DB from '../db/db';
 import { exportItemsToCsv } from '../utils/csvHelper';
 
 type Theme = 'light' | 'dark';
-
-// --- Initial Seed Data ---
-const INITIAL_CATEGORIES = ['Appetizers', 'Main Courses', 'Desserts', 'Beverages', 'Sides'];
-
-// CLEARED: Default items removed.
-const INITIAL_ITEMS: Item[] = [];
 
 const DEFAULT_SETTINGS: AppSettings = { taxEnabled: true, taxRate: 5, storeName: 'My Restaurant' };
 
@@ -51,6 +46,12 @@ interface AppContextType {
   saveTicket: (ticket: SavedTicket) => void;
   removeTicket: (ticketId: string) => void;
 
+  customGrids: CustomGrid[];
+  addCustomGrid: (grid: CustomGrid) => void;
+  updateCustomGrid: (grid: CustomGrid) => void;
+  deleteCustomGrid: (id: string) => void;
+  setCustomGrids: (grids: CustomGrid[]) => void;
+
   // Backup
   exportData: () => void;
   restoreData: (data: BackupData) => void;
@@ -83,6 +84,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [items, setItemsState] = useState<Item[]>([]);
   const [categories, setCategoriesState] = useState<string[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
+  const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   
   // --- Initialize & Load Data ---
   useEffect(() => {
@@ -90,43 +92,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         await DB.initDB();
         
-        // Load data in parallel
         const [
-            loadedItems, 
-            loadedReceipts, 
-            loadedPrinters, 
-            loadedSettings, 
-            loadedCategories,
-            loadedTickets
+            loadedItems, loadedReceipts, loadedPrinters, 
+            loadedSettings, loadedCategories, loadedTickets, loadedGrids
         ] = await Promise.all([
-            DB.getAllItems(),
-            DB.getAllReceipts(),
-            DB.getAllPrinters(),
-            DB.getSettings(),
-            DB.getCategories(),
-            DB.getAllSavedTickets()
+            DB.getAllItems(), DB.getAllReceipts(), DB.getAllPrinters(),
+            DB.getSettings(), DB.getCategories(), DB.getAllSavedTickets(),
+            DB.getAllCustomGrids()
         ]);
 
-        // Seed Initial Data if empty
-        if (loadedItems.length === 0 && (!loadedCategories || loadedCategories.length === 0)) {
-             console.log("Seeding Database...");
-             // Seed Items (None)
-             setItemsState([]);
-
-             // Seed Categories
-             await DB.saveCategories(INITIAL_CATEGORIES);
-             setCategoriesState(INITIAL_CATEGORIES);
-
-             // Seed Settings
+        setItemsState(loadedItems);
+        setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
+        setPrintersState(loadedPrinters);
+        setSettingsState(loadedSettings || DEFAULT_SETTINGS);
+        setCategoriesState(loadedCategories || []);
+        setSavedTicketsState(loadedTickets);
+        setCustomGridsState(loadedGrids);
+        
+        // Seed initial settings if none exist
+        if (!loadedSettings) {
              await DB.saveSettings(DEFAULT_SETTINGS);
-             setSettingsState(DEFAULT_SETTINGS);
-        } else {
-             setItemsState(loadedItems);
-             setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
-             setPrintersState(loadedPrinters);
-             setSettingsState(loadedSettings || DEFAULT_SETTINGS);
-             setCategoriesState(loadedCategories || INITIAL_CATEGORIES);
-             setSavedTicketsState(loadedTickets);
         }
 
       } catch (e) {
@@ -204,93 +189,87 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- Item Management ---
   const addItem = useCallback(async (item: Item) => {
-    const prev = items;
     setItemsState(curr => [...curr, item]);
-    try {
-        await DB.putItem(item);
-    } catch (e) {
-        setItemsState(prev);
-        alert("Failed to add item.");
-    }
-  }, [items]);
+    try { await DB.putItem(item); } catch (e) { alert("Failed to add item."); }
+  }, []);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
-    const prev = items;
     setItemsState(curr => curr.map(item => item.id === updatedItem.id ? updatedItem : item));
-    try {
-        await DB.putItem(updatedItem);
-    } catch (e) {
-        setItemsState(prev);
-        alert("Failed to update item.");
-    }
-  }, [items]);
+    try { await DB.putItem(updatedItem); } catch (e) { alert("Failed to update item."); }
+  }, []);
 
   const deleteItem = useCallback(async (id: string) => {
-    console.log(`[AppContext] deleteItem called for ID: ${id}. Attempting DB delete first.`);
     try {
         await DB.deleteItem(id);
-        console.log(`[AppContext] DB deletion successful for ID: ${id}. Now updating state.`);
         setItemsState(curr => curr.filter(item => item.id !== id));
     } catch (e) {
-        console.error(`[AppContext] DB deletion failed for ID: ${id}. State was not changed.`, e);
         alert("Failed to delete item from database. The item will reappear on refresh.");
     }
-  }, [items]);
+  }, []);
 
   // --- Category Management ---
   const setCategories = useCallback(async (newCategories: string[]) => {
-      const prev = categories;
-      setCategoriesState(newCategories);
       try {
         await DB.saveCategories(newCategories);
+        setCategoriesState(newCategories);
       } catch (e) {
-          setCategoriesState(prev);
           alert("Failed to update categories.");
       }
-  }, [categories]);
+  }, []);
 
   const addCategory = useCallback(async (name: string) => {
       if (categories.includes(name)) return;
-      const prev = categories;
       const newCats = [...categories, name];
-      setCategoriesState(newCats);
       try {
           await DB.saveCategories(newCats);
+          setCategoriesState(newCats);
       } catch (e) {
-          setCategoriesState(prev);
           alert("Failed to save category.");
       }
   }, [categories]);
 
   // --- Ticket Management ---
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
-      const prev = savedTickets;
-      // Upsert logic for optimistic UI
       setSavedTicketsState(curr => {
           const exists = curr.find(t => t.id === ticket.id);
-          if (exists) {
-              return curr.map(t => t.id === ticket.id ? ticket : t);
-          }
-          return [...curr, ticket];
+          return exists ? curr.map(t => t.id === ticket.id ? ticket : t) : [...curr, ticket];
       });
-      try {
-          await DB.putSavedTicket(ticket);
-      } catch (e) {
-          setSavedTicketsState(prev);
-          alert("Failed to save ticket.");
-      }
-  }, [savedTickets]);
+      try { await DB.putSavedTicket(ticket); } catch (e) { alert("Failed to save ticket."); }
+  }, []);
 
   const removeTicket = useCallback(async (ticketId: string) => {
-      const prev = savedTickets;
       setSavedTicketsState(curr => curr.filter(t => t.id !== ticketId));
+      try { await DB.deleteSavedTicket(ticketId); } catch (e) { alert("Failed to delete ticket."); }
+  }, []);
+
+  // --- Custom Grid Management ---
+  const addCustomGrid = useCallback(async (grid: CustomGrid) => {
+      setCustomGridsState(curr => [...curr, grid]);
+      try { await DB.putCustomGrid(grid); } catch (e) { alert("Failed to add custom grid."); }
+  }, []);
+
+  const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
+      setCustomGridsState(curr => curr.map(g => g.id === grid.id ? grid : g));
+      try { await DB.putCustomGrid(grid); } catch (e) { alert("Failed to update custom grid."); }
+  }, []);
+
+  const deleteCustomGrid = useCallback(async (id: string) => {
+      setCustomGridsState(curr => curr.filter(g => g.id !== id));
+      try { await DB.deleteCustomGrid(id); } catch (e) { alert("Failed to delete custom grid."); }
+  }, []);
+
+  const setCustomGrids = useCallback(async (grids: CustomGrid[]) => {
+      setCustomGridsState(grids);
       try {
-          await DB.deleteSavedTicket(ticketId);
+          // This needs to be transactional
+          for (const grid of grids) {
+              await DB.putCustomGrid(grid);
+          }
       } catch (e) {
-          setSavedTicketsState(prev);
-          alert("Failed to delete ticket.");
+          alert("Failed to save grid order.");
       }
-  }, [savedTickets]);
+  }, []);
+
 
   // --- CSV Import/Export ---
   const replaceItemsAndCategories = useCallback(async (newItems: Item[], newCategories: string[]) => {
@@ -298,15 +277,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const existingCategories = await DB.getCategories() || [];
       const combinedCategories = Array.from(new Set([...existingCategories, ...newCategories]));
-
       await DB.replaceAllItems(newItems);
       await DB.saveCategories(combinedCategories);
-
       setItemsState(newItems);
       setCategoriesState(combinedCategories);
-
     } catch (e) {
-      console.error("Failed to replace items/categories from CSV", e);
       alert("Failed to import items from CSV. Data has not been changed.");
     } finally {
       setIsLoading(false);
@@ -326,15 +301,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           directory: Directory.Documents,
           encoding: Encoding.UTF8
         }).then(result => {
-           Share.share({
-             title: 'Restaurant POS Items Export',
-             text: `Items exported on ${new Date().toLocaleDateString()}`,
-             url: result.uri, 
-             dialogTitle: 'Save/Share Items CSV'
-           });
-           alert(`Export saved successfully!\n\nLocation: Documents/${fileName}`);
+           Share.share({ url: result.uri });
         }).catch(error => {
-          console.error("CSV Export Failed:", error);
           alert(`CSV Export Failed: ${error.message || error}`);
         });
       } else {
@@ -347,7 +315,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         downloadAnchorNode.remove();
       }
     } catch (e) {
-      console.error("Failed to generate CSV", e);
       alert("An error occurred while generating the CSV file.");
     }
   }, [items]);
@@ -355,43 +322,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // --- Backup & Restore ---
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '2.0',
-        timestamp: new Date().toISOString(),
-        settings,
-        items,
-        categories,
-        printers,
-        receipts,
-        savedTickets
+        version: '2.0', timestamp: new Date().toISOString(),
+        settings, items, categories, printers, receipts, savedTickets, customGrids
     };
-    
     const jsonString = JSON.stringify(backup, null, 2);
-    // Sanitize filename: replace colons/dots with dashes for safe filesystem handling on Android/Linux
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `pos_backup_${dateStr}.json`;
 
     if (Capacitor.isNativePlatform()) {
       try {
-        // 1. Save to Documents directory (Persistent)
-        const result = await Filesystem.writeFile({
-          path: fileName,
-          data: jsonString,
-          directory: Directory.Documents,
-          encoding: Encoding.UTF8
-        });
-
-        // 2. Share the file from Documents
-        await Share.share({
-          title: 'Restaurant POS Backup',
-          text: `Backup created on ${new Date().toLocaleDateString()}`,
-          url: result.uri, 
-          dialogTitle: 'Save/Share Backup File'
-        });
-
-        alert(`Backup saved successfully!\n\nLocation: Documents/${fileName}`);
-
+        const result = await Filesystem.writeFile({ path: fileName, data: jsonString, directory: Directory.Documents, encoding: Encoding.UTF8 });
+        await Share.share({ url: result.uri });
       } catch (error: any) {
-        console.error("Export Failed:", error);
         alert(`Export Failed: ${error.message || error}`);
       }
     } else {
@@ -403,27 +345,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       downloadAnchorNode.click();
       downloadAnchorNode.remove();
     }
-  }, [settings, items, categories, printers, receipts, savedTickets]);
+  }, [settings, items, categories, printers, receipts, savedTickets, customGrids]);
 
   const restoreData = useCallback(async (data: BackupData) => {
       setIsLoading(true);
       try {
           await DB.clearDatabase();
           
-          // Helper to restore parsed receipts (dates are strings in JSON)
-          const restoredReceipts = (data.receipts || []).map(r => ({
-              ...r,
-              date: new Date(r.date)
-          }));
+          const restoredReceipts = (data.receipts || []).map(r => ({ ...r, date: new Date(r.date) }));
 
           // Bulk Insert to DB
           await DB.saveSettings(data.settings);
           await DB.saveCategories(data.categories);
-          
           for(const p of (data.printers || [])) await DB.putPrinter(p);
           for(const i of (data.items || [])) await DB.putItem(i);
           for(const r of restoredReceipts) await DB.addReceipt(r);
           for(const t of (data.savedTickets || [])) await DB.putSavedTicket(t);
+          for(const g of (data.customGrids || [])) await DB.putCustomGrid(g);
 
           // Update State
           setSettingsState(data.settings);
@@ -432,9 +370,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setPrintersState(data.printers || []);
           setReceiptsState(restoredReceipts);
           setSavedTicketsState(data.savedTickets || []);
+          setCustomGridsState(data.customGrids || []);
 
       } catch(e) {
-          console.error("Restore failed", e);
           alert("Failed to restore data from backup.");
       } finally {
           setIsLoading(false);
@@ -446,7 +384,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
   
-  // Show a loading screen or simple fallback until DB is ready
   if (isLoading) {
       return (
           <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -470,6 +407,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       items, addItem, updateItem, deleteItem,
       categories, setCategories, addCategory,
       savedTickets, saveTicket, removeTicket,
+      customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
       exportData, restoreData,
       exportItemsCsv, replaceItemsAndCategories
     }}>
