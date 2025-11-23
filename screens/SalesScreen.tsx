@@ -356,7 +356,7 @@ const SalesScreen: React.FC = () => {
       {currentOrder.length > 0 && !isTicketVisible && (
         <button
             onClick={() => setIsTicketVisible(true)}
-            className="md:hidden fixed bottom-4 right-4 bg-blue-600 text-white font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 z-20 animate-pulse"
+            className="md:hidden fixed bottom-4 right-4 bg-blue-600 text-white font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 z-20"
         >
             <ReceiptIcon className="h-5 w-5" />
             <span>View Order ({currentOrder.reduce((acc, item) => acc + item.quantity, 0)})</span>

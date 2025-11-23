@@ -2,7 +2,6 @@
 
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
 import { printReceipt } from '../../utils/printerHelper';
@@ -157,22 +156,17 @@ const Ticket: React.FC<TicketProps> = (props) => {
             <button onClick={() => setTicketMenuOpen(prev => !prev)} className="p-2 text-gray-600 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white" aria-label="Ticket options">
               <ThreeDotsIcon className="h-5 w-5" />
             </button>
-            <AnimatePresence>
-                {isTicketMenuOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20"
-                    >
-                        <div className="py-1">
-                            <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Clear Ticket</button>
-                            <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Print Bill</button>
-                            <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Edit Ticket Details</button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {isTicketMenuOpen && (
+                <div
+                    className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-700 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20"
+                >
+                    <div className="py-1">
+                        <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Clear Ticket</button>
+                        <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Print Bill</button>
+                        <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600">Edit Ticket Details</button>
+                    </div>
+                </div>
+            )}
           </div>
       </header>
       <div className="flex-1 overflow-y-auto p-4">
@@ -182,30 +176,32 @@ const Ticket: React.FC<TicketProps> = (props) => {
               <p className="mt-4 font-medium text-slate-500">Your order is empty</p>
             </div>
           ) : (
-            <ul className="space-y-4 overflow-x-hidden">
-              <AnimatePresence initial={false} mode="popLayout">
+            <ul className="space-y-2 overflow-x-hidden">
               {currentOrder.map(item => (
-                <motion.li layout key={item.id} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0, marginBottom: 0 }} transition={{ duration: 0.2 }} className="relative group">
-                  <div className="absolute inset-0 bg-red-500 rounded-lg flex items-center justify-end pr-4 z-0 mb-2"><TrashIcon className="h-5 w-5 text-white" /></div>
-                  <motion.div drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={{ left: 0.5, right: 0.05 }} onDragEnd={(e, { offset }) => { if (offset.x < -150) deleteLineItem(item.id); }} style={{ touchAction: 'pan-y' }} className="relative z-10 bg-white dark:bg-slate-800 flex items-center text-sm p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700">
-                    <div className="flex-grow">
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">{item.name}</p>
-                        <p className="text-slate-500 dark:text-slate-400">₹{item.price.toFixed(2)}</p>
-                    </div>
-                    <div className="flex items-center justify-center gap-2 mx-4">
-                        <button onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFromOrder(item.id)} className="h-7 w-7 bg-slate-200 dark:bg-slate-700 text-lg rounded-full text-slate-600 dark:text-slate-300 hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors" aria-label={`Remove one ${item.name}`}>-</button>
-                        {editingQuantityItemId === item.id ? (
-                            <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-indigo-400 rounded-md ring-1 ring-indigo-400 dark:border-indigo-500" autoFocus onFocus={(e) => e.target.select()} />
-                        ) : (
-                            <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-slate-900 dark:text-slate-200 cursor-pointer rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
-                        )}
-                        <button onPointerDown={(e) => e.stopPropagation()} onClick={() => addToOrder(item)} className="h-7 w-7 bg-slate-200 dark:bg-slate-700 text-lg rounded-full text-slate-600 dark:text-slate-300 hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors" aria-label={`Add one ${item.name}`}>+</button>
-                    </div>
-                    <p className="w-16 font-semibold text-slate-800 dark:text-slate-200 text-right">₹{(item.price * item.quantity).toFixed(2)}</p>
-                  </motion.div>
-                </motion.li>
+                <li key={item.id} className="relative group bg-white dark:bg-slate-800 flex items-center text-sm p-2 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700">
+                  <div className="flex-grow">
+                      <p className="font-semibold text-slate-800 dark:text-slate-200">{item.name}</p>
+                      <p className="text-slate-500 dark:text-slate-400">₹{item.price.toFixed(2)}</p>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mx-4">
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => removeFromOrder(item.id)} className="h-7 w-7 bg-slate-200 dark:bg-slate-700 text-lg rounded-full text-slate-600 dark:text-slate-300 hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors" aria-label={`Remove one ${item.name}`}>-</button>
+                      {editingQuantityItemId === item.id ? (
+                          <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-indigo-400 rounded-md ring-1 ring-indigo-400 dark:border-indigo-500" autoFocus onFocus={(e) => e.target.select()} />
+                      ) : (
+                          <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-slate-900 dark:text-slate-200 cursor-pointer rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
+                      )}
+                      <button onPointerDown={(e) => e.stopPropagation()} onClick={() => addToOrder(item)} className="h-7 w-7 bg-slate-200 dark:bg-slate-700 text-lg rounded-full text-slate-600 dark:text-slate-300 hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors" aria-label={`Add one ${item.name}`}>+</button>
+                  </div>
+                  <p className="w-16 font-semibold text-slate-800 dark:text-slate-200 text-right">₹{(item.price * item.quantity).toFixed(2)}</p>
+                  <button 
+                    onClick={() => deleteLineItem(item.id)} 
+                    className="ml-2 p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 rounded-full transition-colors"
+                    aria-label={`Delete ${item.name}`}
+                  >
+                      <TrashIcon className="h-5 w-5" />
+                  </button>
+                </li>
               ))}
-              </AnimatePresence>
             </ul>
           )}
         </div>
