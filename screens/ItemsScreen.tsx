@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -16,8 +15,15 @@ const generateId = () => {
     });
 };
 
+// FIX: Refactored ItemRow to use a props interface and React.FC to fix typing issue with the 'key' prop.
 // Refactored Row Component: Row click edits, Delete button is separate/protected
-const ItemRow = ({ item, onEdit, onDelete }: { item: Item, onEdit: (item: Item) => void, onDelete: (id: string) => void }) => {
+interface ItemRowProps {
+  item: Item;
+  onEdit: (item: Item) => void;
+  onDelete: (id: string) => void;
+}
+
+const ItemRow: React.FC<ItemRowProps> = ({ item, onEdit, onDelete }) => {
     return (
         <tr 
             onClick={() => onEdit(item)}

@@ -231,17 +231,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try { await DB.deleteCustomGrid(id); } catch (e) { alert("Failed to delete custom grid."); }
   }, []);
 
-  const setCustomGrids = useCallback(async (grids: CustomGrid[]) => {
-      setCustomGridsState(grids);
+  const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
+      const originalGrids = customGrids; // Capture the state at the time of the call for potential rollback.
+      setCustomGridsState(newGrids); // Optimistic UI update.
+
       try {
-          // This needs to be transactional
-          for (const grid of grids) {
-              await DB.putCustomGrid(grid);
-          }
+          const newGridIds = new Set(newGrids.map(g => g.id));
+          const gridsToDelete = originalGrids.filter(g => !newGridIds.has(g.id));
+
+          const db = await DB.initDB();
+          const tx = db.transaction('custom_grids', 'readwrite');
+          const store = tx.objectStore('custom_grids');
+
+          // Batch deletes and puts within a single transaction
+          const deletePromises = gridsToDelete.map(grid => store.delete(grid.id));
+          const putPromises = newGrids.map(grid => store.put(grid));
+          
+          await Promise.all([...deletePromises, ...putPromises]);
+          
+          await tx.done;
+
       } catch (e) {
-          alert("Failed to save grid order.");
+          console.error("Failed to save grid changes to DB:", e);
+          setCustomGridsState(originalGrids); // Revert UI state on failure.
+          alert("Failed to save grid changes. Your changes have been reverted.");
       }
-  }, []);
+  }, [customGrids]);
 
 
   // --- CSV Import/Export ---
