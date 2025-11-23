@@ -15,7 +15,7 @@
     "@capacitor/core": "^7.4.4",
     "@capacitor/filesystem": "^7.1.4",
     "@capacitor/share": "^7.0.2",
-    "idb": "^8.0.0"
+    "firebase": "^12.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

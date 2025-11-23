@@ -1,4 +1,3 @@
-
 /**
  * PRINTER HELPER
  * 
@@ -124,7 +123,16 @@ const sendToPrinter = async (data: string, printer: Printer): Promise<{ success:
         await connectToPrinter(printer.address);
 
         await new Promise<void>((resolve, reject) => {
-            window.bluetoothSerial.write(data, () => resolve(), (err: any) => reject(new Error(JSON.stringify(err))));
+            window.bluetoothSerial.write(data, 
+                () => resolve(), 
+                // FIX: Do not JSON.stringify the raw error object from the plugin, as it may contain circular references.
+                // Instead, safely extract a message for propagation.
+                (err: any) => {
+                    console.error("Bluetooth write failed:", err);
+                    const message = typeof err === 'string' ? err : (err?.message || 'Unknown write error');
+                    reject(new Error(message));
+                }
+            );
         });
 
         return { success: true, message: "Data sent to printer." };

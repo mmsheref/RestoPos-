@@ -1,11 +1,12 @@
-
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import * as DB from '../db/db';
 import { exportItemsToCsv } from '../utils/csvHelper';
+import { db, ensureAuthenticated, RESTAURANT_ID, clearAllData, firebaseConfig } from '../firebase';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, getDoc } from 'firebase/firestore';
+import FirebaseError from '../components/FirebaseError';
 
 type Theme = 'light' | 'dark';
 
@@ -16,6 +17,13 @@ const DEFAULT_SETTINGS: AppSettings = {
     storeAddress: '123 Food Street, Flavor Town',
     receiptFooter: 'Follow us @myrestaurant'
 };
+
+interface FirebaseErrorState {
+  title: string;
+  message: string;
+  instructions: string[];
+  projectId: string;
+}
 
 interface AppContextType {
   isDrawerOpen: boolean;
@@ -67,6 +75,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [initializationError, setInitializationError] = useState<FirebaseErrorState | null>(null);
+
   
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -87,58 +97,100 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   
-  // --- Initialize & Load Data ---
+  // --- Initialize & Load Data from Firebase ---
   useEffect(() => {
-    const initData = async () => {
+    const initFirebase = async () => {
       try {
-        await DB.initDB();
+        await ensureAuthenticated();
         
-        const [
-            loadedItems, loadedReceipts, loadedPrinters, 
-            loadedSettings, loadedTickets, loadedGrids
-        ] = await Promise.all([
-            DB.getAllItems(), DB.getAllReceipts(), DB.getAllPrinters(),
-            DB.getSettings(), DB.getAllSavedTickets(),
-            DB.getAllCustomGrids()
-        ]);
+        const unsubscribers = [
+          onSnapshot(collection(db, 'restaurants', RESTAURANT_ID, 'items'), (snapshot) => {
+              const itemsData = snapshot.docs.map(doc => ({ ...doc.data() } as Item));
+              setItemsState(itemsData);
+          }),
+          onSnapshot(collection(db, 'restaurants', RESTAURANT_ID, 'receipts'), (snapshot) => {
+              const receiptsData = snapshot.docs.map(doc => {
+                  const data = doc.data();
+                  return { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
+              }).sort((a,b) => b.date.getTime() - a.date.getTime());
+              setReceiptsState(receiptsData);
+          }),
+          onSnapshot(collection(db, 'restaurants', RESTAURANT_ID, 'printers'), (snapshot) => {
+              const printersData = snapshot.docs.map(doc => ({ ...doc.data() } as Printer));
+              setPrintersState(printersData);
+          }),
+          onSnapshot(collection(db, 'restaurants', RESTAURANT_ID, 'saved_tickets'), (snapshot) => {
+              const ticketsData = snapshot.docs.map(doc => ({ ...doc.data() } as SavedTicket));
+              setSavedTicketsState(ticketsData);
+          }),
+          onSnapshot(collection(db, 'restaurants', RESTAURANT_ID, 'custom_grids'), (snapshot) => {
+              const gridsData = snapshot.docs.map(doc => ({ ...doc.data() } as CustomGrid));
+              setCustomGridsState(gridsData);
+          }),
+          onSnapshot(doc(db, 'restaurants', RESTAURANT_ID, 'config', 'settings'), async (docSnap) => {
+              if (docSnap.exists()) {
+                setSettingsState(docSnap.data() as AppSettings);
+              } else {
+                // If settings don't exist, create them with defaults directly.
+                console.log("No settings found in Firestore, creating with defaults.");
+                setSettingsState(DEFAULT_SETTINGS);
+                try {
+                  await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'config', 'settings'), DEFAULT_SETTINGS);
+                } catch (e) {
+                  console.error("Failed to create default settings document:", e);
+                }
+              }
+          })
+        ];
+        
+        setIsLoading(false);
 
-        setItemsState(loadedItems);
-        setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
-        setPrintersState(loadedPrinters);
-        setSettingsState(loadedSettings || DEFAULT_SETTINGS);
-        setSavedTicketsState(loadedTickets);
-        setCustomGridsState(loadedGrids);
-        
-        // Seed initial settings if none exist
-        if (!loadedSettings) {
-             await DB.saveSettings(DEFAULT_SETTINGS);
+        return () => unsubscribers.forEach(unsub => unsub());
+
+      } catch (e: any) {
+        console.error("Firebase initialization failed:", e);
+        if (e.code === 'auth/configuration-not-found') {
+            setInitializationError({
+                title: 'Firebase Configuration Error',
+                message: 'Anonymous sign-in is not enabled for your project.',
+                instructions: [
+                    'Go to the <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline">Firebase Console</a>.',
+                    `Select your project: <strong>${firebaseConfig.projectId}</strong>.`,
+                    'In the left menu, go to <strong>Build &gt; Authentication</strong>.',
+                    'Click the <strong>Sign-in method</strong> tab.',
+                    'Find <strong>Anonymous</strong> in the provider list and click the pencil icon to enable it.',
+                    '<strong>Refresh this page</strong> after enabling.'
+                ],
+                projectId: firebaseConfig.projectId
+            });
+        } else {
+            setInitializationError({
+                title: 'Connection Failed',
+                message: e.message || 'Could not connect to the database. Please check your internet connection and try again.',
+                instructions: ['If the problem persists, verify your Firebase configuration details.'],
+                projectId: firebaseConfig.projectId
+            });
         }
-
-      } catch (e) {
-        console.error("Failed to initialize database:", e);
-        alert("Critical Error: Database initialization failed. Some features may not work.");
-      } finally {
         setIsLoading(false);
       }
     };
 
-    initData();
+    const unsubscribePromise = initFirebase();
+
+    return () => {
+        unsubscribePromise.then(unsub => { if(unsub) unsub() });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
-  // --- Logic Wrappers with Robust Error Handling (Optimistic UI) ---
-
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    const prevReceipts = receipts;
-    setReceiptsState(curr => [receipt, ...curr]);
     try {
-        await DB.addReceipt(receipt);
+        await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'receipts', receipt.id), receipt);
     } catch (e) {
         console.error("Failed to save receipt", e);
-        setReceiptsState(prevReceipts);
         alert("Failed to save receipt to database.");
     }
-  }, [receipts]);
+  }, []);
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
@@ -154,182 +206,148 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [theme]);
 
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
-    const prevSettings = settings;
     const updated = { ...settings, ...newSettings };
-    setSettingsState(updated);
     try {
-        await DB.saveSettings(updated);
+        await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'config', 'settings'), updated);
     } catch (e) {
-        setSettingsState(prevSettings);
         console.error("Failed to save settings", e);
     }
   }, [settings]);
 
   const addPrinter = useCallback(async (printer: Printer) => {
-    const prevPrinters = printers;
-    setPrintersState(curr => [...curr, printer]);
     try {
-        await DB.putPrinter(printer);
+        await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'printers', printer.id), printer);
     } catch (e) {
-        setPrintersState(prevPrinters);
         alert("Failed to save printer.");
     }
-  }, [printers]);
+  }, []);
 
   const removePrinter = useCallback(async (printerId: string) => {
-    const prevPrinters = printers;
-    setPrintersState(curr => curr.filter(p => p.id !== printerId));
     try {
-        await DB.deletePrinter(printerId);
+        await deleteDoc(doc(db, 'restaurants', RESTAURANT_ID, 'printers', printerId));
     } catch (e) {
-        setPrintersState(prevPrinters);
         alert("Failed to delete printer.");
     }
-  }, [printers]);
+  }, []);
 
-  // --- Item Management ---
   const addItem = useCallback(async (item: Item) => {
-    const prevItems = items;
-    setItemsState(curr => [...curr, item]);
     try { 
-      await DB.putItem(item); 
+      await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'items', item.id), item); 
     } catch (e) { 
-      setItemsState(prevItems);
       console.error("Failed to add item", e);
       alert("Failed to add item.");
     }
-  }, [items]);
+  }, []);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
-    const prevItems = items;
-    setItemsState(curr => curr.map(item => item.id === updatedItem.id ? updatedItem : item));
     try { 
-      await DB.putItem(updatedItem); 
+      await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'items', updatedItem.id), updatedItem); 
     } catch (e) { 
-      setItemsState(prevItems);
       console.error("Failed to update item", e);
       alert("Failed to update item.");
     }
-  }, [items]);
+  }, []);
 
   const deleteItem = useCallback(async (id: string) => {
-    const prevItems = items;
-    setItemsState(curr => curr.filter(item => item.id !== id));
     try {
-        await DB.deleteItem(id);
+        await deleteDoc(doc(db, 'restaurants', RESTAURANT_ID, 'items', id));
     } catch (e) {
-        setItemsState(prevItems);
         console.error("Failed to delete item", e);
         alert("Failed to delete item from database.");
     }
-  }, [items]);
+  }, []);
 
-  // --- Ticket Management ---
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
-      const prevTickets = savedTickets;
-      setSavedTicketsState(curr => {
-          const exists = curr.find(t => t.id === ticket.id);
-          return exists ? curr.map(t => t.id === ticket.id ? ticket : t) : [...curr, ticket];
-      });
       try { 
-        await DB.putSavedTicket(ticket); 
+        await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'saved_tickets', ticket.id), ticket); 
       } catch (e) { 
-        setSavedTicketsState(prevTickets);
         console.error("Failed to save ticket", e);
         alert("Failed to save ticket.");
       }
-  }, [savedTickets]);
+  }, []);
 
   const removeTicket = useCallback(async (ticketId: string) => {
-      const prevTickets = savedTickets;
-      setSavedTicketsState(curr => curr.filter(t => t.id !== ticketId));
       try { 
-        await DB.deleteSavedTicket(ticketId); 
+        await deleteDoc(doc(db, 'restaurants', RESTAURANT_ID, 'saved_tickets', ticketId));
       } catch (e) { 
-        setSavedTicketsState(prevTickets);
         console.error("Failed to delete ticket", e);
         alert("Failed to delete ticket.");
       }
-  }, [savedTickets]);
+  }, []);
 
-  // --- Custom Grid Management ---
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
-      const prevGrids = customGrids;
-      setCustomGridsState(curr => [...curr, grid]);
       try { 
-        await DB.putCustomGrid(grid); 
+        await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'custom_grids', grid.id), grid); 
       } catch (e) { 
-        setCustomGridsState(prevGrids);
         console.error("Failed to add custom grid", e);
         alert("Failed to add custom grid.");
       }
-  }, [customGrids]);
+  }, []);
 
   const updateCustomGrid = useCallback(async (grid: CustomGrid) => {
-      const prevGrids = customGrids;
-      setCustomGridsState(curr => curr.map(g => g.id === grid.id ? grid : g));
       try { 
-        await DB.putCustomGrid(grid); 
+        await setDoc(doc(db, 'restaurants', RESTAURANT_ID, 'custom_grids', grid.id), grid);
       } catch (e) { 
-        setCustomGridsState(prevGrids);
         console.error("Failed to update custom grid", e);
         alert("Failed to update custom grid.");
       }
-  }, [customGrids]);
+  }, []);
 
   const deleteCustomGrid = useCallback(async (id: string) => {
-      const prevGrids = customGrids;
-      setCustomGridsState(curr => curr.filter(g => g.id !== id));
       try { 
-        await DB.deleteCustomGrid(id); 
+        await deleteDoc(doc(db, 'restaurants', RESTAURANT_ID, 'custom_grids', id));
       } catch (e) { 
-        setCustomGridsState(prevGrids);
         console.error("Failed to delete custom grid", e);
         alert("Failed to delete custom grid.");
       }
-  }, [customGrids]);
+  }, []);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
-      const originalGrids = [...customGrids];
-      setCustomGridsState(newGrids);
-
+      const batch = writeBatch(db);
+      const gridsCollectionRef = collection(db, 'restaurants', RESTAURANT_ID, 'custom_grids');
+      
       try {
-          const db = await DB.initDB();
-          const tx = db.transaction('custom_grids', 'readwrite');
-          const store = tx.objectStore('custom_grids');
-
-          if (newGrids.length === 0 && originalGrids.length > 0) {
-              await store.clear();
-          } else {
-              const newGridIds = new Set(newGrids.map(g => g.id));
-              const gridsToDelete = originalGrids.filter(g => !newGridIds.has(g.id));
-              const deletePromises = gridsToDelete.map(grid => store.delete(grid.id));
-              const putPromises = newGrids.map(grid => store.put(grid));
-              await Promise.all([...deletePromises, ...putPromises]);
-          }
+          // To perform a replace, we fetch existing IDs to delete the ones not in the new set
+          const currentGridIds = customGrids.map(g => g.id);
+          const newGridIds = new Set(newGrids.map(g => g.id));
           
-          await tx.done;
+          const gridsToDelete = currentGridIds.filter(id => !newGridIds.has(id));
+          
+          gridsToDelete.forEach(id => {
+              batch.delete(doc(gridsCollectionRef, id));
+          });
+
+          newGrids.forEach(grid => {
+              batch.set(doc(gridsCollectionRef, grid.id), grid);
+          });
+          
+          await batch.commit();
 
       } catch (e) {
           console.error("Failed to save grid changes to DB:", e);
-          setCustomGridsState(originalGrids);
-          alert("Failed to save grid changes. Your changes have been reverted.");
+          alert("Failed to save grid changes. Please try again.");
       }
   }, [customGrids]);
 
 
-  // --- CSV Import/Export ---
   const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
+    const batch = writeBatch(db);
+    const itemsCollectionRef = collection(db, 'restaurants', RESTAURANT_ID, 'items');
     try {
-      await DB.replaceAllItems(newItems);
-      setItemsState(newItems);
+      // Clear existing items
+      items.forEach(item => batch.delete(doc(itemsCollectionRef, item.id)));
+
+      // Add new items
+      newItems.forEach(item => batch.set(doc(itemsCollectionRef, item.id), item));
+
+      await batch.commit();
     } catch (e) {
       alert("Failed to import items from CSV. Data has not been changed.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [items]);
 
   const exportItemsCsv = useCallback(() => {
     try {
@@ -362,10 +380,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [items]);
   
-  // --- Backup & Restore ---
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '2.0', timestamp: new Date().toISOString(),
+        version: '2.0-firebase', timestamp: new Date().toISOString(),
         settings, items, categories: [], printers, receipts, savedTickets, customGrids
     };
     const jsonString = JSON.stringify(backup, null, 2);
@@ -393,27 +410,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const restoreData = useCallback(async (data: BackupData) => {
       setIsLoading(true);
       try {
-          await DB.clearDatabase();
+          await clearAllData();
           
-          const restoredReceipts = (data.receipts || []).map(r => ({ ...r, date: new Date(r.date) }));
+          const batch = writeBatch(db);
+          
+          // Settings
+          batch.set(doc(db, 'restaurants', RESTAURANT_ID, 'config', 'settings'), data.settings);
 
-          // Bulk Insert to DB
-          await DB.saveSettings(data.settings);
-          for(const p of (data.printers || [])) await DB.putPrinter(p);
-          for(const i of (data.items || [])) await DB.putItem(i);
-          for(const r of restoredReceipts) await DB.addReceipt(r);
-          for(const t of (data.savedTickets || [])) await DB.putSavedTicket(t);
-          for(const g of (data.customGrids || [])) await DB.putCustomGrid(g);
+          // Collections
+          (data.items || []).forEach(item => batch.set(doc(db, 'restaurants', RESTAURANT_ID, 'items', item.id), item));
+          (data.printers || []).forEach(p => batch.set(doc(db, 'restaurants', RESTAURANT_ID, 'printers', p.id), p));
+          (data.receipts || []).forEach(r => batch.set(doc(db, 'restaurants', RESTAURANT_ID, 'receipts', r.id), {...r, date: new Date(r.date)}));
+          (data.savedTickets || []).forEach(t => batch.set(doc(db, 'restaurants', RESTAURANT_ID, 'saved_tickets', t.id), t));
+          (data.customGrids || []).forEach(g => batch.set(doc(db, 'restaurants', RESTAURANT_ID, 'custom_grids', g.id), g));
 
-          // Update State
-          setSettingsState(data.settings);
-          setItemsState(data.items || []);
-          setPrintersState(data.printers || []);
-          setReceiptsState(restoredReceipts);
-          setSavedTicketsState(data.savedTickets || []);
-          setCustomGridsState(data.customGrids || []);
+          await batch.commit();
 
       } catch(e) {
+          console.error("Restore failed:", e);
           alert("Failed to restore data from backup.");
       } finally {
           setIsLoading(false);
@@ -425,12 +439,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
   
+  if (initializationError) {
+      return <FirebaseError error={initializationError} />
+  }
+
   if (isLoading) {
       return (
           <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
              <div className="text-center">
                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                 <p className="text-gray-600 dark:text-gray-400">Loading Database...</p>
+                 <p className="text-gray-600 dark:text-gray-400">Connecting to Cloud...</p>
              </div>
           </div>
       )
