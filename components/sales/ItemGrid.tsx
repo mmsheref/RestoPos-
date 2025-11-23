@@ -1,6 +1,12 @@
 
 import React from 'react';
-import { Item } from '../../types';
+
+interface Item {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+}
 
 interface ItemGridProps {
   itemsForGrid: (Item | null)[];
@@ -19,24 +25,13 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForGrid, addToOrder }) => {
             role="button"
             aria-label={`Add ${item.name} to order`}
           >
-            {/* Visual Representation */}
-            {item.representation === 'image' && item.imageUrl ? (
-              <img 
-                src={item.imageUrl} 
-                alt={item.name} 
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                loading="lazy"
-              />
-            ) : (
-              <div 
-                className="absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-105"
-                style={{ backgroundColor: item.color || '#94a3b8' }}
-              >
-                  {item.shape === 'circle' && (
-                      <div className="absolute inset-0 m-2 rounded-full border-2 border-white/30"></div>
-                  )}
-              </div>
-            )}
+            {/* Full size image */}
+            <img 
+              src={item.imageUrl} 
+              alt={item.name} 
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              loading="lazy"
+            />
             
             {/* Content Container: Simple black bar, name only */}
             <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-black/75 flex items-center justify-center min-h-[20%]">

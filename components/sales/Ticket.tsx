@@ -1,9 +1,14 @@
 
+
+
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { OrderItem, SavedTicket, Item } from '../../types';
+import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
 import { printReceipt } from '../../utils/printerHelper';
+
+// Define a leaner item type for what addToOrder expects from the grid
+type SimpleItem = { id: string; name: string; price: number };
 
 interface TicketProps {
     className?: string;
@@ -24,7 +29,7 @@ interface TicketProps {
     setEditingQuantityItemId: (id: string | null) => void;
     setTempQuantity: (qty: string) => void;
     removeFromOrder: (id: string) => void;
-    addToOrder: (item: Item) => void;
+    addToOrder: (item: SimpleItem) => void;
     deleteLineItem: (id: string) => void;
     handleQuantityClick: (item: OrderItem) => void;
     handleQuantityChangeCommit: () => void;

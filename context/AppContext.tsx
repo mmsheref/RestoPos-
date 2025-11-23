@@ -1,5 +1,4 @@
-
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
@@ -11,12 +10,8 @@ type Theme = 'light' | 'dark';
 // --- Initial Seed Data ---
 const INITIAL_CATEGORIES = ['Appetizers', 'Main Courses', 'Desserts', 'Beverages', 'Sides'];
 
-// Updated Initial Items structure
-const INITIAL_ITEMS: Item[] = [
-    { id: 'a1', name: 'Spring Rolls', price: 150.00, category: 'Appetizers', stock: 100, representation: 'image', imageUrl: 'https://picsum.photos/id/10/200/200' },
-    { id: 'm1', name: 'Steak Frites', price: 650.00, category: 'Main Courses', stock: 50, representation: 'image', imageUrl: 'https://picsum.photos/id/40/200/200' },
-    { id: 'b1', name: 'Coke', price: 60.00, category: 'Beverages', stock: 200, representation: 'color', color: '#EF4444', shape: 'circle' },
-];
+// CLEARED: Default items removed.
+const INITIAL_ITEMS: Item[] = [];
 
 const DEFAULT_SETTINGS: AppSettings = { taxEnabled: true, taxRate: 5, storeName: 'My Restaurant' };
 
@@ -46,7 +41,6 @@ interface AppContextType {
   addItem: (item: Item) => void;
   updateItem: (item: Item) => void;
   deleteItem: (id: string) => void;
-  importItems: (newItems: Item[]) => void;
   
   categories: string[];
   setCategories: (categories: string[]) => void; 
@@ -93,9 +87,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         await DB.initDB();
         
-        const isInitialized = await DB.getIsInitialized();
-        console.log("Database initialized check:", isInitialized);
-
         // Load data in parallel
         const [
             loadedItems, 
@@ -113,12 +104,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             DB.getAllSavedTickets()
         ]);
 
-        // Seed Initial Data ONLY if not initialized before
-        if (!isInitialized) {
+        // Seed Initial Data if empty
+        if (loadedItems.length === 0 && (!loadedCategories || loadedCategories.length === 0)) {
              console.log("Seeding Database...");
-             // Seed Items
-             for (const item of INITIAL_ITEMS) await DB.putItem(item);
-             setItemsState(INITIAL_ITEMS);
+             // Seed Items (None)
+             setItemsState([]);
 
              // Seed Categories
              await DB.saveCategories(INITIAL_CATEGORIES);
@@ -127,20 +117,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
              // Seed Settings
              await DB.saveSettings(DEFAULT_SETTINGS);
              setSettingsState(DEFAULT_SETTINGS);
-
-             // Mark as initialized so we don't seed again
-             await DB.setInitialized();
         } else {
-             // Normal Load
              setItemsState(loadedItems);
-             setCategoriesState(loadedCategories || INITIAL_CATEGORIES);
+             setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime())); // Sort desc
+             setPrintersState(loadedPrinters);
              setSettingsState(loadedSettings || DEFAULT_SETTINGS);
+             setCategoriesState(loadedCategories || INITIAL_CATEGORIES);
+             setSavedTicketsState(loadedTickets);
         }
-
-        // Always load these
-        setReceiptsState(loadedReceipts.sort((a,b) => b.date.getTime() - a.date.getTime()));
-        setPrintersState(loadedPrinters);
-        setSavedTicketsState(loadedTickets);
 
       } catch (e) {
         console.error("Failed to initialize database:", e);
@@ -217,85 +201,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- Item Management ---
   const addItem = useCallback(async (item: Item) => {
-    const itemWithId = { ...item, id: item.id || crypto.randomUUID() };
-    
-    setItemsState(curr => [...curr, itemWithId]);
+    const prev = items;
+    setItemsState(curr => [...curr, item]);
     try {
-        await DB.putItem(itemWithId);
+        await DB.putItem(item);
     } catch (e) {
-        // Revert
-        setItemsState(curr => curr.filter(i => i.id !== itemWithId.id));
+        setItemsState(prev);
         alert("Failed to add item.");
-        console.error(e);
     }
-  }, []);
+  }, [items]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
+    const prev = items;
     setItemsState(curr => curr.map(item => item.id === updatedItem.id ? updatedItem : item));
     try {
         await DB.putItem(updatedItem);
     } catch (e) {
+        setItemsState(prev);
         alert("Failed to update item.");
-        console.error(e);
-        // Reload from DB to ensure state consistency
-        const dbItems = await DB.getAllItems();
-        setItemsState(dbItems);
     }
-  }, []);
+  }, [items]);
 
   const deleteItem = useCallback(async (id: string) => {
-    console.log("[AppContext] Deleting item with ID:", id);
-    
-    // 1. Optimistic Update (Immediate UI response)
-    setItemsState(curr => {
-        const remaining = curr.filter(item => item.id !== id);
-        return remaining;
-    });
-
+    console.log(`[AppContext] deleteItem called for ID: ${id}. Attempting DB delete first.`);
     try {
-        // 2. DB Update
         await DB.deleteItem(id);
+        console.log(`[AppContext] DB deletion successful for ID: ${id}. Now updating state.`);
+        setItemsState(curr => curr.filter(item => item.id !== id));
     } catch (e) {
-        console.error("[AppContext] Failed to delete item from DB", e);
-        alert("Failed to delete item from database. The list will refresh.");
-        
-        // 3. Rollback on failure
-        const dbItems = await DB.getAllItems();
-        setItemsState(dbItems);
+        console.error(`[AppContext] DB deletion failed for ID: ${id}. State was not changed.`, e);
+        alert("Failed to delete item from database. The item will reappear on refresh.");
     }
-  }, []);
-  
-  // Import multiple items (e.g. from CSV)
-  const importItems = useCallback(async (newItems: Item[]) => {
-      setItemsState(curr => {
-          // Merge logic: replace if ID exists, else add
-          const map = new Map(curr.map(i => [i.id, i]));
-          newItems.forEach(i => map.set(i.id, i));
-          return Array.from(map.values());
-      });
-      
-      try {
-          for (const item of newItems) {
-              await DB.putItem(item);
-          }
-          
-          // Also update categories if new ones found
-          const newCats = new Set(categories);
-          newItems.forEach(i => {
-              if(i.category) newCats.add(i.category);
-          });
-          
-          const newCatsArray = Array.from(newCats);
-          if(newCatsArray.length > categories.length) {
-             setCategoriesState(newCatsArray);
-             await DB.saveCategories(newCatsArray);
-          }
-          
-      } catch(e) {
-          console.error("Bulk import failed", e);
-          alert("Error importing items into database.");
-      }
-  }, [categories]);
+  }, [items]);
 
   // --- Category Management ---
   const setCategories = useCallback(async (newCategories: string[]) => {
@@ -324,6 +261,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // --- Ticket Management ---
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
+      const prev = savedTickets;
+      // Upsert logic for optimistic UI
       setSavedTicketsState(curr => {
           const exists = curr.find(t => t.id === ticket.id);
           if (exists) {
@@ -334,27 +273,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
           await DB.putSavedTicket(ticket);
       } catch (e) {
-           alert("Failed to save ticket.");
-           const dbTickets = await DB.getAllSavedTickets();
-           setSavedTicketsState(dbTickets);
+          setSavedTicketsState(prev);
+          alert("Failed to save ticket.");
       }
-  }, []);
+  }, [savedTickets]);
 
   const removeTicket = useCallback(async (ticketId: string) => {
+      const prev = savedTickets;
       setSavedTicketsState(curr => curr.filter(t => t.id !== ticketId));
       try {
           await DB.deleteSavedTicket(ticketId);
       } catch (e) {
+          setSavedTicketsState(prev);
           alert("Failed to delete ticket.");
-          const dbTickets = await DB.getAllSavedTickets();
-          setSavedTicketsState(dbTickets);
       }
-  }, []);
+  }, [savedTickets]);
 
   // --- Backup & Restore ---
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '4.0',
+        version: '2.0',
         timestamp: new Date().toISOString(),
         settings,
         items,
@@ -365,11 +303,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     
     const jsonString = JSON.stringify(backup, null, 2);
+    // Sanitize filename: replace colons/dots with dashes for safe filesystem handling on Android/Linux
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `pos_backup_${dateStr}.json`;
 
     if (Capacitor.isNativePlatform()) {
       try {
+        // 1. Save to Documents directory (Persistent)
         const result = await Filesystem.writeFile({
           path: fileName,
           data: jsonString,
@@ -377,6 +317,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           encoding: Encoding.UTF8
         });
 
+        // 2. Share the file from Documents
         await Share.share({
           title: 'Restaurant POS Backup',
           text: `Backup created on ${new Date().toLocaleDateString()}`,
@@ -384,7 +325,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           dialogTitle: 'Save/Share Backup File'
         });
 
-        alert(`Backup saved successfully!`);
+        alert(`Backup saved successfully!\n\nLocation: Documents/${fileName}`);
+
       } catch (error: any) {
         console.error("Export Failed:", error);
         alert(`Export Failed: ${error.message || error}`);
@@ -405,11 +347,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
           await DB.clearDatabase();
           
+          // Helper to restore parsed receipts (dates are strings in JSON)
           const restoredReceipts = (data.receipts || []).map(r => ({
               ...r,
               date: new Date(r.date)
           }));
 
+          // Bulk Insert to DB
           await DB.saveSettings(data.settings);
           await DB.saveCategories(data.categories);
           
@@ -418,8 +362,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           for(const r of restoredReceipts) await DB.addReceipt(r);
           for(const t of (data.savedTickets || [])) await DB.putSavedTicket(t);
 
-          await DB.setInitialized();
-
+          // Update State
           setSettingsState(data.settings);
           setItemsState(data.items || []);
           setCategoriesState(data.categories || []);
@@ -440,6 +383,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
   const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
   
+  // Show a loading screen or simple fallback until DB is ready
   if (isLoading) {
       return (
           <div className="flex h-screen w-full items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -460,7 +404,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       settings, updateSettings,
       printers, addPrinter, removePrinter,
       receipts, addReceipt,
-      items, addItem, updateItem, deleteItem, importItems,
+      items, addItem, updateItem, deleteItem,
       categories, setCategories, addCategory,
       savedTickets, saveTicket, removeTicket,
       exportData, restoreData

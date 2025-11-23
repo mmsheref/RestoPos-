@@ -28,7 +28,7 @@ interface POSDB extends DBSchema {
 }
 
 const DB_NAME = 'pos_db';
-const DB_VERSION = 4; // Bumped for new Item fields (cost, representation)
+const DB_VERSION = 9; // Bumped to force structure consistency
 
 let dbPromise: Promise<IDBPDatabase<POSDB>>;
 
@@ -40,27 +40,26 @@ export const initDB = () => {
         if (!db.objectStoreNames.contains('items')) {
           db.createObjectStore('items', { keyPath: 'id' });
         }
-        
         // Receipts Store
         if (!db.objectStoreNames.contains('receipts')) {
           const receiptStore = db.createObjectStore('receipts', { keyPath: 'id' });
           receiptStore.createIndex('by-date', 'date');
         }
-        
         // Printers Store
         if (!db.objectStoreNames.contains('printers')) {
           db.createObjectStore('printers', { keyPath: 'id' });
         }
-        
-        // Config Store
+        // Config Store (Settings, Categories)
         if (!db.objectStoreNames.contains('config')) {
           db.createObjectStore('config');
         }
-        
-        // Saved Tickets Store
+        // Saved Tickets Store (New in v2)
         if (!db.objectStoreNames.contains('saved_tickets')) {
           db.createObjectStore('saved_tickets', { keyPath: 'id' });
         }
+      },
+      terminated() {
+          console.error("DB Connection Terminated unexpectedly.");
       },
     });
   }
@@ -80,8 +79,20 @@ export const putItem = async (item: Item) => {
 };
 
 export const deleteItem = async (id: string) => {
+  console.log(`[DB] Attempting to delete item with ID: ${id}`);
   const db = await initDB();
-  return db.delete('items', id);
+  try {
+    const tx = db.transaction('items', 'readwrite');
+    console.log(`[DB] Transaction created for deleting item ID: ${id}`);
+    const store = tx.objectStore('items');
+    await store.delete(id);
+    console.log(`[DB] store.delete() called for ID: ${id}. Awaiting transaction completion.`);
+    await tx.done;
+    console.log(`[DB] Transaction for deleting ID ${id} completed successfully.`);
+  } catch (error) {
+    console.error(`[DB] Error during delete transaction for ID ${id}:`, error);
+    throw error; // Re-throw so the context layer can handle it (e.g., revert state)
+  }
 };
 
 export const getAllReceipts = async () => {
@@ -129,16 +140,6 @@ export const getCategories = async (): Promise<string[] | undefined> => {
 export const saveCategories = async (categories: string[]) => {
   const db = await initDB();
   return db.put('config', categories, 'categories');
-};
-
-export const getIsInitialized = async (): Promise<boolean> => {
-    const db = await initDB();
-    return (await db.get('config', 'is_initialized')) || false;
-};
-
-export const setInitialized = async () => {
-    const db = await initDB();
-    await db.put('config', true, 'is_initialized');
 };
 
 // --- Saved Tickets Helpers ---

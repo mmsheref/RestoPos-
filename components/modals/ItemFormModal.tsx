@@ -1,39 +1,38 @@
 
 import React, { useState, useEffect } from 'react';
 import { Item } from '../../types';
+import { TrashIcon } from '../../constants';
 
 interface ItemFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (item: Partial<Item>) => void;
+    // Optional: Pass delete handler if supported
+    onDelete?: () => void;
     initialData?: Item;
     categories: string[];
 }
 
-const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, initialData, categories }) => {
+const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, onDelete, initialData, categories }) => {
     const [name, setName] = useState('');
     const [category, setCategory] = useState('');
     const [price, setPrice] = useState('');
     const [stock, setStock] = useState('');
     const [imageUrl, setImageUrl] = useState('');
 
-    // Reset state when modal opens
     useEffect(() => {
-        if (isOpen) {
-            if (initialData) {
-                setName(initialData.name);
-                setCategory(initialData.category);
-                setPrice(initialData.price.toString());
-                setStock(initialData.stock.toString());
-                setImageUrl(initialData.imageUrl);
-            } else {
-                // Defaults for new item
-                setName('');
-                setCategory(categories[0] || 'Uncategorized');
-                setPrice('');
-                setStock('100');
-                setImageUrl('');
-            }
+        if (initialData) {
+            setName(initialData.name);
+            setCategory(initialData.category);
+            setPrice(initialData.price.toString());
+            setStock(initialData.stock.toString());
+            setImageUrl(initialData.imageUrl);
+        } else {
+            setName('');
+            setCategory(categories[0] || '');
+            setPrice('');
+            setStock('100');
+            setImageUrl('');
         }
     }, [initialData, categories, isOpen]);
 
@@ -41,35 +40,34 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
-        // Basic Validation
-        const parsedPrice = parseFloat(price);
-        const parsedStock = parseInt(stock, 10);
-
-        if (!name.trim()) {
-            alert("Item name is required.");
-            return;
-        }
-        if (isNaN(parsedPrice) || parsedPrice < 0) {
-            alert("Please enter a valid positive price.");
-            return;
-        }
-
         onSave({
-            name: name.trim(),
+            name,
             category,
-            price: parsedPrice,
-            stock: isNaN(parsedStock) ? 0 : parsedStock,
-            imageUrl: imageUrl.trim() || 'https://via.placeholder.com/150'
+            price: parseFloat(price) || 0,
+            stock: parseInt(stock) || 0,
+            imageUrl: imageUrl || 'https://via.placeholder.com/150'
         });
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={onClose}>
-            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold mb-4 text-slate-800 dark:text-slate-100">
-                    {initialData ? 'Edit Item' : 'Add New Item'}
-                </h2>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg p-6 shadow-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                        {initialData ? 'Edit Item' : 'Add New Item'}
+                    </h2>
+                    {initialData && onDelete && (
+                         <button 
+                            type="button" 
+                            onClick={onDelete}
+                            className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                            aria-label="Delete item"
+                            title="Delete Item"
+                         >
+                            <TrashIcon className="h-5 w-5" />
+                         </button>
+                    )}
+                </div>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -79,54 +77,44 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                             type="text" 
                             value={name} 
                             onChange={e => setName(e.target.value)} 
-                            placeholder="e.g., Burger"
-                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                            autoFocus
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Price</label>
-                            <div className="relative">
-                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500">₹</span>
-                                <input 
-                                    required
-                                    type="number" 
-                                    min="0"
-                                    step="0.01"
-                                    value={price} 
-                                    onChange={e => setPrice(e.target.value)} 
-                                    className="w-full p-2 pl-6 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
+                            <input 
+                                required
+                                type="number" 
+                                min="0"
+                                step="0.01"
+                                value={price} 
+                                onChange={e => setPrice(e.target.value)} 
+                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Stock</label>
                             <input 
                                 type="number" 
-                                min="0"
-                                step="1"
                                 value={stock} 
                                 onChange={e => setStock(e.target.value)} 
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                             />
                         </div>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Category</label>
-                        <div className="relative">
+                        <div className="flex gap-2">
                             <select 
                                 value={category} 
                                 onChange={e => setCategory(e.target.value)}
-                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none"
+                                className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                             >
                                 {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                             </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-500">
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </div>
                         </div>
                     </div>
 
@@ -136,26 +124,14 @@ const ItemFormModal: React.FC<ItemFormModalProps> = ({ isOpen, onClose, onSave, 
                             type="url" 
                             value={imageUrl} 
                             onChange={e => setImageUrl(e.target.value)} 
-                            placeholder="https://example.com/image.jpg"
-                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder="https://..."
+                            className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-indigo-500"
                         />
-                        <p className="text-xs text-slate-500 mt-1">Leave empty for placeholder</p>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-6 border-t dark:border-slate-700 mt-2">
-                        <button 
-                            type="button" 
-                            onClick={onClose} 
-                            className="px-4 py-2 text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            type="submit" 
-                            className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                        >
-                            {initialData ? 'Update Item' : 'Save Item'}
-                        </button>
+                    <div className="flex justify-end gap-3 pt-4 border-t dark:border-slate-700">
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">Cancel</button>
+                        <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Save Item</button>
                     </div>
                 </form>
             </div>
