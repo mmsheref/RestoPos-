@@ -141,6 +141,10 @@ const SalesScreen: React.FC = () => {
   const handleSaveGrids = (newGrids: CustomGrid[]) => {
       setCustomGrids(newGrids);
       setIsManageGridsModalOpen(false);
+      // UX Improvement: If the active grid was deleted, switch to the 'All' view.
+      if (activeGridId !== 'All' && !newGrids.some(g => g.id === activeGridId)) {
+          setActiveGridId('All');
+      }
   };
   const handleOpenSelectItemModal = (slotIndex: number) => {
       if (activeGridId === 'All') return;

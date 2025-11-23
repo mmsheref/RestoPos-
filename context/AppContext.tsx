@@ -232,22 +232,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
-      const originalGrids = customGrids; // Capture the state at the time of the call for potential rollback.
+      const originalGrids = [...customGrids]; // Capture the state at the time of the call for potential rollback.
       setCustomGridsState(newGrids); // Optimistic UI update.
 
       try {
-          const newGridIds = new Set(newGrids.map(g => g.id));
-          const gridsToDelete = originalGrids.filter(g => !newGridIds.has(g.id));
-
           const db = await DB.initDB();
           const tx = db.transaction('custom_grids', 'readwrite');
           const store = tx.objectStore('custom_grids');
 
-          // Batch deletes and puts within a single transaction
-          const deletePromises = gridsToDelete.map(grid => store.delete(grid.id));
-          const putPromises = newGrids.map(grid => store.put(grid));
-          
-          await Promise.all([...deletePromises, ...putPromises]);
+          // FIX: Add a more robust path for deleting all grids by clearing the object store.
+          if (newGrids.length === 0 && originalGrids.length > 0) {
+              await store.clear();
+          } else {
+              const newGridIds = new Set(newGrids.map(g => g.id));
+              const gridsToDelete = originalGrids.filter(g => !newGridIds.has(g.id));
+
+              // Batch deletes and puts within a single transaction
+              const deletePromises = gridsToDelete.map(grid => store.delete(grid.id));
+              const putPromises = newGrids.map(grid => store.put(grid));
+              
+              await Promise.all([...deletePromises, ...putPromises]);
+          }
           
           await tx.done;
 
