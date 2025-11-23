@@ -24,7 +24,7 @@ const ItemGrid: React.FC<ItemGridProps> = ({ itemsForDisplay, mode, onAddItemToO
             <div
               key={item.id}
               onClick={() => onAddItemToOrder(item)}
-              className="relative w-full h-full rounded-lg overflow-hidden cursor-pointer group shadow-sm border border-slate-200 dark:border-slate-700 bg-gray-100 dark:bg-gray-800 flex flex-col"
+              className="relative w-full aspect-square rounded-lg overflow-hidden cursor-pointer group shadow-sm border border-slate-200 dark:border-slate-700 bg-gray-100 dark:bg-gray-800 flex flex-col"
               role="button"
               aria-label={`Add ${item.name} to order`}
             >

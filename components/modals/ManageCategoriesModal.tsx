@@ -37,26 +37,40 @@ const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({ isOpen, o
   };
 
   const handleDelete = (index: number) => {
-    console.log(`[ManageCategoriesModal] Attempting to delete category at index ${index}.`);
+    console.log(`--- DEBUG: handleDelete INITIATED (Index: ${index}) ---`);
     const categoryToDelete = categories[index];
-    console.log(`[ManageCategoriesModal] Category to delete: "${categoryToDelete}"`);
+    console.log(`[1] Category to delete: "${categoryToDelete}"`);
+    console.log(`[2] Checking against ${allItems.length} total items...`);
 
-    const itemsUsingCategory = allItems.filter(item => item.category === categoryToDelete);
-    console.log(`[ManageCategoriesModal] Found ${itemsUsingCategory.length} items using this category.`);
+    // Detailed logging of items being checked
+    console.log('[DEBUG] All items being checked:', allItems.map(i => ({name: i.name, category: i.category})));
 
+    const itemsUsingCategory = allItems.filter(item => {
+        const isMatch = item.category === categoryToDelete;
+        if(isMatch) {
+            console.log(`[DEBUG] Match found: Item "${item.name}" uses category "${item.category}"`);
+        }
+        return isMatch;
+    });
+
+    console.log(`[3] Found ${itemsUsingCategory.length} items using this category.`);
     if (itemsUsingCategory.length > 0) {
-      console.warn(`[ManageCategoriesModal] Deletion blocked. Category is in use.`);
-      alert(`Cannot delete category "${categoryToDelete}" because it is used by ${itemsUsingCategory.length} item(s). Please re-assign them to another category first.`);
-      return;
+        console.warn(`[4] BLOCK: Deletion prevented because category is in use.`);
+        const itemNames = itemsUsingCategory.map(i => i.name).join(', ');
+        alert(`Cannot delete category "${categoryToDelete}". It is currently used by the following item(s): ${itemNames}. Please change their category first.`);
+        console.log(`--- DEBUG: handleDelete ENDED (Blocked) ---`);
+        return;
     }
 
-    console.log(`[ManageCategoriesModal] Category is not in use. Showing confirmation dialog.`);
+    console.log(`[4] PROCEED: Category is not in use. Showing confirmation dialog.`);
     if (window.confirm(`Are you sure you want to delete the category "${categories[index]}"?`)) {
-      console.log(`[ManageCategoriesModal] User confirmed deletion. Updating state.`);
+      console.log(`[5] CONFIRMED: User clicked OK. Removing category from state.`);
       setCategories(categories.filter((_, i) => i !== index));
+      console.log(`[6] SUCCESS: Category removed.`);
     } else {
-      console.log(`[ManageCategoriesModal] User cancelled deletion.`);
+      console.log(`[5] CANCELLED: User clicked Cancel.`);
     }
+    console.log(`--- DEBUG: handleDelete ENDED ---`);
   };
   
   const handleStartEditing = (index: number) => {
