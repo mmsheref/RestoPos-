@@ -9,6 +9,7 @@ import OpenTicketsModal from '../components/modals/OpenTicketsModal';
 import ManageGridsModal from '../components/modals/ManageGridsModal';
 import SelectItemModal from '../components/modals/SelectItemModal';
 import AddGridModal from '../components/modals/AddGridModal';
+import ConfirmModal from '../components/modals/ConfirmModal';
 import SalesHeader from '../components/sales/SalesHeader';
 import ItemGrid from '../components/sales/ItemGrid';
 import CategoryTabs from '../components/sales/CategoryTabs';
@@ -51,6 +52,9 @@ const SalesScreen: React.FC = () => {
   const [isSelectItemModalOpen, setIsSelectItemModalOpen] = useState(false);
   const [isAddGridModalOpen, setIsAddGridModalOpen] = useState(false);
   const [assigningSlot, setAssigningSlot] = useState<{gridId: string, slotIndex: number} | null>(null);
+  const [isConfirmRemoveOpen, setIsConfirmRemoveOpen] = useState(false);
+  const [itemToRemove, setItemToRemove] = useState<{ slotIndex: number; name: string } | null>(null);
+
 
   // Mobile landscape state
   const [isTicketVisible, setIsTicketVisible] = useState(false);
@@ -164,6 +168,34 @@ const SalesScreen: React.FC = () => {
       setAssigningSlot(null);
   };
 
+  const handleRemoveItemFromGrid = useCallback((slotIndex: number) => {
+      if (activeGridId === 'All') return;
+
+      const grid = customGrids.find(g => g.id === activeGridId);
+      if (!grid) return;
+      
+      const itemId = grid.itemIds[slotIndex];
+      const item = items.find(i => i.id === itemId);
+      if (!item) return;
+      
+      setItemToRemove({ slotIndex, name: item.name });
+      setIsConfirmRemoveOpen(true);
+  }, [activeGridId, customGrids, items]);
+
+  const handleConfirmRemoveItemFromGrid = useCallback(() => {
+    if (!itemToRemove || activeGridId === 'All') return;
+
+    const grid = customGrids.find(g => g.id === activeGridId);
+    if (grid) {
+        const newItemIds = [...grid.itemIds];
+        newItemIds[itemToRemove.slotIndex] = null;
+        updateCustomGrid({ ...grid, itemIds: newItemIds });
+    }
+
+    setIsConfirmRemoveOpen(false);
+    setItemToRemove(null);
+  }, [activeGridId, customGrids, itemToRemove, updateCustomGrid]);
+
   const handleClearTicket = () => {
     setCurrentOrder([]);
     setEditingTicket(null);
@@ -186,6 +218,7 @@ const SalesScreen: React.FC = () => {
               mode={activeGridId === 'All' || searchQuery.trim() ? 'all' : 'grid'}
               onAddItemToOrder={addToOrder}
               onAssignItem={handleOpenSelectItemModal}
+              onRemoveItemFromGrid={handleRemoveItemFromGrid}
             />
           </div>
           <CategoryTabs
@@ -229,6 +262,17 @@ const SalesScreen: React.FC = () => {
       <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleSelectItem} allItems={items} />
       <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />
       <AddGridModal isOpen={isAddGridModalOpen} onClose={() => setIsAddGridModalOpen(false)} onSave={handleSaveNewGrid} />
+      <ConfirmModal
+        isOpen={isConfirmRemoveOpen}
+        onClose={() => setIsConfirmRemoveOpen(false)}
+        onConfirm={handleConfirmRemoveItemFromGrid}
+        title="Confirm Removal"
+        confirmText="Remove"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+      >
+        <p>Are you sure you want to remove "<strong>{itemToRemove?.name}</strong>" from this grid slot?</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">The item itself will not be deleted from your menu.</p>
+      </ConfirmModal>
     </div>
   );
 };

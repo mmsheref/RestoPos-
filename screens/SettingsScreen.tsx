@@ -3,19 +3,16 @@
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { TrashIcon } from '../constants';
-import { Printer, BackupData, Item } from '../types';
+import { Printer, BackupData } from '../types';
 import { testPrint } from '../utils/printerHelper';
 import AddPrinterModal from '../components/settings/AddPrinterModal';
 import ConfirmImportModal from '../components/modals/ConfirmImportModal';
-import ConfirmCsvImportModal from '../components/modals/ConfirmCsvImportModal';
-import { parseCsvToItems } from '../utils/csvHelper';
 
 const SettingsScreen: React.FC = () => {
   const { 
       theme, setTheme, settings, updateSettings, 
       printers, addPrinter, removePrinter,
-      exportData, restoreData,
-      exportItemsCsv, replaceItems
+      exportData, restoreData
   } = useAppContext();
   
   const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
@@ -24,15 +21,10 @@ const SettingsScreen: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importCandidate, setImportCandidate] = useState<BackupData | null>(null);
   
-  // CSV import state
-  const [isCsvImportModalOpen, setIsCsvImportModalOpen] = useState(false);
-  const [csvImportCandidate, setCsvImportCandidate] = useState<{items: Item[]}>({ items: [] });
-
   const [testingPrinterId, setTestingPrinterId] = useState<string | null>(null);
   
   // Refs for file inputs
   const jsonFileInputRef = useRef<HTMLInputElement>(null);
-  const csvFileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -75,10 +67,6 @@ const SettingsScreen: React.FC = () => {
       jsonFileInputRef.current?.click();
   };
 
-  const handleCsvImportClick = () => {
-      csvFileInputRef.current?.click();
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -115,53 +103,12 @@ const SettingsScreen: React.FC = () => {
       }
   };
 
-  const handleCsvFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-          try {
-            const csvContent = event.target?.result as string;
-            if (csvContent) {
-               const parsedData = parseCsvToItems(csvContent);
-               if (parsedData.items.length === 0) {
-                   throw new Error("No valid items found in the CSV file.");
-               }
-               setCsvImportCandidate(parsedData);
-               setIsCsvImportModalOpen(true);
-            }
-          } catch (error: any) {
-              console.error(error);
-              alert(`Failed to parse CSV file: ${error.message}`);
-          } finally {
-             if (csvFileInputRef.current) csvFileInputRef.current.value = '';
-          }
-      };
-      
-      try {
-        reader.readAsText(file);
-      } catch (err) {
-        console.error("File reading error", err);
-        alert("Could not read file.");
-      }
-  };
-
   const handleConfirmImport = () => {
       if (importCandidate) {
           restoreData(importCandidate);
           setIsImportModalOpen(false);
           setImportCandidate(null);
           alert("Data restored successfully!");
-      }
-  };
-
-  const handleConfirmCsvImport = () => {
-      if (csvImportCandidate.items.length > 0) {
-          replaceItems(csvImportCandidate.items);
-          setIsCsvImportModalOpen(false);
-          setCsvImportCandidate({ items: [] });
-          alert("Items imported successfully!");
       }
   };
 
@@ -250,7 +197,7 @@ const SettingsScreen: React.FC = () => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-blue-500">
            <h2 className="text-xl font-semibold mb-4 border-b dark:border-gray-700 pb-2 text-gray-800 dark:text-gray-100">Data Management</h2>
            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-             Manage your app data using JSON for full backups or CSV for item management.
+             Manage your app data using JSON for full backups. Item data can be managed on the Items page.
            </p>
            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                {/* Full Backup */}
@@ -274,30 +221,6 @@ const SettingsScreen: React.FC = () => {
                  accept="application/json, .json" 
                  ref={jsonFileInputRef} 
                  onChange={handleFileChange} 
-                 className="hidden" 
-               />
-
-                {/* Item Management */}
-                <h3 className="sm:col-span-2 text-base font-medium text-gray-600 dark:text-gray-400 mt-4 border-t dark:border-gray-700 pt-4">Item Management (CSV)</h3>
-                <button 
-                 onClick={exportItemsCsv}
-                 className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-               >
-                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                   Export Items CSV
-               </button>
-               <button 
-                 onClick={handleCsvImportClick}
-                 className="w-full bg-teal-500 text-white px-4 py-2 rounded-md hover:bg-teal-600 transition-colors flex items-center justify-center gap-2"
-               >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                   Import Items CSV
-               </button>
-               <input 
-                 type="file" 
-                 accept=".csv, text/csv"
-                 ref={csvFileInputRef} 
-                 onChange={handleCsvFileChange} 
                  className="hidden" 
                />
            </div>
@@ -396,12 +319,6 @@ const SettingsScreen: React.FC = () => {
         onConfirm={handleConfirmImport}
       />
 
-      <ConfirmCsvImportModal
-        isOpen={isCsvImportModalOpen}
-        items={csvImportCandidate.items}
-        onClose={() => setIsCsvImportModalOpen(false)}
-        onConfirm={handleConfirmCsvImport}
-      />
     </div>
   );
 };
