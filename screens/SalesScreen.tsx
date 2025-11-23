@@ -159,6 +159,12 @@ const SalesScreen: React.FC = () => {
       setAssigningSlot(null);
   };
 
+  const handleClearTicket = () => {
+    setCurrentOrder([]);
+    setEditingTicket(null);
+    setEditingQuantityItemId(null);
+  };
+
   if (salesView === 'payment') {
     return <ChargeScreen total={total} tax={tax} subtotal={subtotal} onBack={() => setSalesView('grid')} onProcessPayment={handleProcessPayment} onNewSale={handleNewSale} paymentResult={paymentResult} orderItems={currentOrder} />;
   }
@@ -202,6 +208,7 @@ const SalesScreen: React.FC = () => {
         handlePrimarySaveAction={() => editingTicket ? (saveTicket({ ...editingTicket, items: currentOrder }), setCurrentOrder([]), setEditingTicket(null)) : setIsSaveModalOpen(true)}
         onCharge={() => setSalesView('payment')} onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
         onSaveTicket={() => setIsSaveModalOpen(true)} printers={printers}
+        onClearTicket={handleClearTicket}
       />
       
       {currentOrder.length > 0 && !isTicketVisible && (
