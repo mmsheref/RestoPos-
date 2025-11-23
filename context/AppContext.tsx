@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import * as DB from '../db/db';
+import { exportItemsToCsv } from '../utils/csvHelper';
 
 type Theme = 'light' | 'dark';
 
@@ -53,6 +54,8 @@ interface AppContextType {
   // Backup
   exportData: () => void;
   restoreData: (data: BackupData) => void;
+  exportItemsCsv: () => void;
+  replaceItemsAndCategories: (items: Item[], newCategories: string[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -289,6 +292,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
   }, [savedTickets]);
 
+  // --- CSV Import/Export ---
+  const replaceItemsAndCategories = useCallback(async (newItems: Item[], newCategories: string[]) => {
+    setIsLoading(true);
+    try {
+      const existingCategories = await DB.getCategories() || [];
+      const combinedCategories = Array.from(new Set([...existingCategories, ...newCategories]));
+
+      await DB.replaceAllItems(newItems);
+      await DB.saveCategories(combinedCategories);
+
+      setItemsState(newItems);
+      setCategoriesState(combinedCategories);
+
+    } catch (e) {
+      console.error("Failed to replace items/categories from CSV", e);
+      alert("Failed to import items from CSV. Data has not been changed.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const exportItemsCsv = useCallback(() => {
+    try {
+      const csvString = exportItemsToCsv(items);
+      const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `pos_items_export_${dateStr}.csv`;
+  
+      if (Capacitor.isNativePlatform()) {
+        Filesystem.writeFile({
+          path: fileName,
+          data: csvString,
+          directory: Directory.Documents,
+          encoding: Encoding.UTF8
+        }).then(result => {
+           Share.share({
+             title: 'Restaurant POS Items Export',
+             text: `Items exported on ${new Date().toLocaleDateString()}`,
+             url: result.uri, 
+             dialogTitle: 'Save/Share Items CSV'
+           });
+           alert(`Export saved successfully!\n\nLocation: Documents/${fileName}`);
+        }).catch(error => {
+          console.error("CSV Export Failed:", error);
+          alert(`CSV Export Failed: ${error.message || error}`);
+        });
+      } else {
+        const dataStr = "data:text/csv;charset=utf-8," + encodeURIComponent(csvString);
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", fileName);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+      }
+    } catch (e) {
+      console.error("Failed to generate CSV", e);
+      alert("An error occurred while generating the CSV file.");
+    }
+  }, [items]);
+  
   // --- Backup & Restore ---
   const exportData = useCallback(async () => {
     const backup: BackupData = {
@@ -407,7 +470,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       items, addItem, updateItem, deleteItem,
       categories, setCategories, addCategory,
       savedTickets, saveTicket, removeTicket,
-      exportData, restoreData
+      exportData, restoreData,
+      exportItemsCsv, replaceItemsAndCategories
     }}>
       {children}
     </AppContext.Provider>

@@ -1,4 +1,3 @@
-
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { Item, Receipt, Printer, AppSettings, SavedTicket } from '../types';
 
@@ -160,6 +159,16 @@ export const deleteSavedTicket = async (id: string) => {
 };
 
 // --- Bulk Ops for Restore ---
+
+export const replaceAllItems = async (items: Item[]) => {
+    const db = await initDB();
+    const tx = db.transaction('items', 'readwrite');
+    await tx.objectStore('items').clear();
+    for (const item of items) {
+        tx.objectStore('items').put(item);
+    }
+    await tx.done;
+};
 
 export const clearDatabase = async () => {
     const db = await initDB();
