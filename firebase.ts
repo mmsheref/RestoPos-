@@ -1,93 +1,81 @@
-// FIX: Use a named import for `initializeApp` as required by the Firebase v9+ modular SDK.
+
+// FIX: Update Firebase SDK usage. `initializeFirestore` is deprecated. The modern way to enable multi-tab persistence
+// is with `getFirestore` and `enableMultiTabIndexedDbPersistence`. This resolves the module resolution error.
 import { initializeApp } from 'firebase/app';
 import { 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager, 
+  getFirestore,
+  enableMultiTabIndexedDbPersistence,
   collection, 
   doc, 
   getDocs, 
   writeBatch 
 } from 'firebase/firestore';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import type { User } from 'firebase/auth';
+import { 
+    getAuth, 
+    onAuthStateChanged,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut
+} from 'firebase/auth';
+import type { User, AuthCredential } from 'firebase/auth';
+// IMPORT the config from the separate file (which CI/CD will generate)
+import { firebaseConfig } from './firebaseConfig';
 
-// =================================================================================
-// 🔥 PASTE YOUR FIREBASE CONFIGURATION HERE 🔥
-//
-// You can get this from the Firebase Console:
-// 1. Go to your project's settings.
-// 2. In the "General" tab, scroll down to "Your apps".
-// 3. Select the web app you're using.
-// 4. Under "Firebase SDK snippet", choose "Config" and copy the object.
-// =================================================================================
-export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+// Re-export config so AppContext can use it for error handling
+export { firebaseConfig };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
-// Initialize Firestore with robust offline persistence, replacing getFirestore() and enableIndexedDbPersistence().
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
-
-// --- Authentication ---
-// A memoized promise to ensure we only try to authenticate once per session load, preventing race conditions.
-let authPromise: Promise<User>;
-
-const getAuthUser = (): Promise<User> => {
-    if (!authPromise) {
-        authPromise = new Promise((resolve, reject) => {
-            // Use onAuthStateChanged to get the current user. It resolves immediately if user is already signed in.
-            const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                unsubscribe(); // We only need the initial state, so we unsubscribe to prevent memory leaks.
-                if (user) {
-                    resolve(user);
-                } else {
-                    // If no user, sign in anonymously.
-                    try {
-                        const userCredential = await signInAnonymously(auth);
-                        resolve(userCredential.user);
-                    } catch (error) {
-                        console.error("Anonymous sign-in failed", error);
-                        reject(error); // Reject the promise if sign-in fails.
-                    }
-                }
-            }, reject); // Pass reject to handle any initial auth errors.
-        });
+enableMultiTabIndexedDbPersistence(db)
+  .catch((err) => {
+    if (err.code == 'failed-precondition') {
+      console.warn(
+        'Firebase persistence failed. This may happen when multiple tabs are open. Offline functionality will be limited.'
+      );
+    } else if (err.code == 'unimplemented') {
+      console.info(
+        'The current browser does not support all features required to enable offline persistence.'
+      );
     }
-    return authPromise;
-}
-export const ensureAuthenticated = getAuthUser;
+  });
 
+
+// --- Auth Functions ---
+export const signUp = (email: string, pass: string) => createUserWithEmailAndPassword(auth, email, pass);
+export const signIn = (email: string, pass: string) => signInWithEmailAndPassword(auth, email, pass);
+export const signOutUser = () => signOut(auth);
+
+export const getFirebaseErrorMessage = (error: any): string => {
+    switch (error.code) {
+        case 'auth/invalid-email':
+            return 'Please enter a valid email address.';
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+            return 'Invalid email or password.';
+        case 'auth/email-already-in-use':
+            return 'This email address is already in use.';
+        case 'auth/weak-password':
+            return 'Password should be at least 6 characters long.';
+        default:
+            return error.message || 'An unexpected error occurred.';
+    }
+}
 
 // --- Data Operations ---
-// For simplicity, we'll operate on a single "restaurant" entity.
-export const RESTAURANT_ID = 'main_restaurant'; 
-
-export const clearAllData = async () => {
-    // Ensure user is authenticated before performing a destructive action.
-    await ensureAuthenticated();
-    
+export const clearAllData = async (uid: string) => {
     const collections = ['items', 'receipts', 'printers', 'saved_tickets', 'custom_grids', 'config'];
     const batch = writeBatch(db);
     
     for (const coll of collections) {
-        const collRef = collection(db, 'restaurants', RESTAURANT_ID, coll);
+        const collRef = collection(db, 'users', uid, coll);
         const snapshot = await getDocs(collRef);
         snapshot.docs.forEach(doc => batch.delete(doc.ref));
     }
     
     await batch.commit();
 }
-
 
 export { db, auth };
