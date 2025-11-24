@@ -18,8 +18,7 @@ export interface Receipt {
   date: Date;
   items: OrderItem[];
   total: number;
-  // CHANGE: Accommodate multiple payment methods for a single transaction.
-  payments: { method: 'Cash' | 'Card' | 'QR'; amount: number }[];
+  paymentMethod: 'Cash' | 'Card' | 'QR';
 }
 
 export interface SavedTicket {
