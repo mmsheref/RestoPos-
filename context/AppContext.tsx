@@ -171,7 +171,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                            const batch = writeBatch(db);
                            const ptCollection = collection(db, 'users', uid, 'payment_types');
                            batch.set(doc(ptCollection, 'cash'), { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash', enabled: true });
-                           batch.set(doc(ptCollection, 'qr'), { id: 'qr', name: 'QR Code', icon: 'qr', type: 'other', enabled: true });
+                           batch.set(doc(ptCollection, 'upi'), { id: 'upi', name: 'UPI', icon: 'upi', type: 'other', enabled: true });
                            await batch.commit();
                        }
                     } catch (e) { console.error("Error initializing user config:", e); }
