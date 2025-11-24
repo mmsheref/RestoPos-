@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -72,26 +71,32 @@ const ReceiptsScreen: React.FC = () => {
         }
     
         setIsPrinting(true);
-    
-        const subtotal = selectedReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-        const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
+        try {
+            const subtotal = selectedReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
+            
+            const printerToUse = printers[0]; // Use the first configured printer
         
-        const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-    
-        const result = await printReceipt({
-            items: selectedReceipt.items,
-            total: selectedReceipt.total,
-            subtotal,
-            tax,
-            receiptId: selectedReceipt.id,
-            paymentMethod: selectedReceipt.paymentMethod,
-            settings,
-            printer,
-        });
-        setIsPrinting(false);
-    
-        if (!result.success) {
-            alert(`Print Failed: ${result.message}`);
+            const result = await printReceipt({
+                items: selectedReceipt.items,
+                total: selectedReceipt.total,
+                subtotal,
+                tax,
+                receiptId: selectedReceipt.id,
+                paymentMethod: selectedReceipt.paymentMethod,
+                settings,
+                printer: printerToUse,
+            });
+        
+            if (!result.success) {
+                alert(`Print Failed: ${result.message}`);
+            } else {
+                setIsMenuOpen(false);
+            }
+        } catch (error: any) {
+             alert(`An unexpected error occurred during printing: ${error.message || 'Unknown error'}`);
+        } finally {
+            setIsPrinting(false);
         }
     };
     
