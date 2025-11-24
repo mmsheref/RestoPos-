@@ -13,12 +13,24 @@ export interface OrderItem extends Item {
   quantity: number;
 }
 
+export type PaymentTypeIcon = 'cash' | 'qr' | 'card' | 'generic';
+export type PaymentMethodType = 'cash' | 'other';
+
+export interface PaymentType {
+  id: string;
+  name: string;
+  icon: PaymentTypeIcon;
+  type: PaymentMethodType;
+  enabled: boolean;
+}
+
+
 export interface Receipt {
   id: string;
   date: Date;
   items: OrderItem[];
   total: number;
-  paymentMethod: 'Cash' | 'Card' | 'QR';
+  paymentMethod: string;
 }
 
 export interface SavedTicket {
@@ -63,4 +75,5 @@ export interface BackupData {
   receipts: Receipt[];
   savedTickets?: SavedTicket[];
   customGrids?: CustomGrid[];
+  paymentTypes?: PaymentType[];
 }

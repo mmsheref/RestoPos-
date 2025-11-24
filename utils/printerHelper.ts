@@ -98,7 +98,8 @@ interface PrintBillArgs {
 
 export interface PrintReceiptArgs extends PrintBillArgs {
     receiptId: string;
-    paymentMethod: 'Cash' | 'Card' | 'QR';
+    // FIX: Changed type from specific literals to string to support custom payment methods.
+    paymentMethod: string;
 }
 
 // Refactors the core printing logic to be reusable
@@ -243,7 +244,8 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     data += '\n';
     
     // 5. Payment
-    data += createLine(paymentMethod === 'QR' ? 'QR FEDERAL BANK' : 'Cash', `${total.toFixed(2)}`, paperWidthChars);
+    // FIX: Use the actual paymentMethod string instead of hardcoded logic.
+    data += createLine(paymentMethod, `${total.toFixed(2)}`, paperWidthChars);
     
     // 6. Footer
     if(settings.receiptFooter) data += '\n' + COMMANDS.CENTER + settings.receiptFooter + '\n';

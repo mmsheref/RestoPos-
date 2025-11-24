@@ -1,10 +1,10 @@
 
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { OrderItem } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { printReceipt } from '../../utils/printerHelper';
-import { UserIcon, ArrowLeftIcon, SplitIcon, CheckIcon, PrintIcon, MailIcon, AnimatedCheckIcon } from '../../constants';
+import { UserIcon, ArrowLeftIcon, SplitIcon, CheckIcon, PrintIcon, MailIcon, AnimatedCheckIcon, PaymentMethodIcon } from '../../constants';
 
 interface ChargeScreenProps {
   orderItems: OrderItem[];
@@ -12,72 +12,73 @@ interface ChargeScreenProps {
   tax: number;
   subtotal: number;
   onBack: () => void;
-  onProcessPayment: (method: 'Cash' | 'QR', tendered: number) => void;
+  onProcessPayment: (method: string, tendered: number) => void;
   onNewSale: () => void;
-  paymentResult: { method: 'Cash' | 'QR', change: number, receiptId: string } | null;
+  paymentResult: { method: string, change: number, receiptId: string } | null;
 }
 
 const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, subtotal, onBack, onProcessPayment, onNewSale, paymentResult }) => {
-  const { settings, printers } = useAppContext();
-  const [cashTendered, setCashTendered] = useState(total);
+  const { settings, printers, paymentTypes } = useAppContext();
+  const [cashTendered, setCashTendered] = useState(total.toFixed(2));
   const [isPrinting, setIsPrinting] = useState(false);
+  const hasBeenFocused = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   
-  // India-specific Smart Suggestions Logic
+  const enabledPaymentTypes = useMemo(() => paymentTypes.filter(p => p.enabled), [paymentTypes]);
+  const cashPaymentType = useMemo(() => enabledPaymentTypes.find(p => p.type === 'cash'), [enabledPaymentTypes]);
+  const otherPaymentTypes = useMemo(() => enabledPaymentTypes.filter(p => p.type !== 'cash'), [enabledPaymentTypes]);
+
   const uniqueQuickCash = useMemo(() => {
     const suggestions = new Set<number>();
-    const notes = [10, 20, 50, 100, 200, 500]; // Standard Indian Notes
-    
-    // 1. Multiples of 10, 50, 100, 500 relative to total
-    // This covers cases like: Total 175 -> Suggest 180 (Nearest 10), 200 (Nearest 50/100)
+    const notes = [10, 20, 50, 100, 200, 500];
     if (total > 10) suggestions.add(Math.ceil(total / 10) * 10);
     if (total > 50) suggestions.add(Math.ceil(total / 50) * 50);
     suggestions.add(Math.ceil(total / 100) * 100);
-    if (total > 100) suggestions.add(Math.ceil(total / 500) * 500);
-
-    // 2. Find the smallest single note that covers the bill
     const nextNote = notes.find(n => n >= total);
     if (nextNote) suggestions.add(nextNote);
-
-    // 3. Find the next note after that (e.g. if 200 covers it, maybe they use 500)
     if (nextNote) {
         const noteAfter = notes.find(n => n > nextNote);
         if (noteAfter) suggestions.add(noteAfter);
-    } else {
-        // Total is huge (>500), maybe suggest next 500 multiple + 100? 
-        // For simple logic, just ensure we have high value suggestions
     }
-
-    return Array.from(suggestions)
-        .filter(amount => amount > total) // Only suggest amounts greater than total (since exact is default)
-        .sort((a, b) => a - b)
-        .slice(0, 4); // Take top 4
+    return Array.from(suggestions).filter(amount => amount > total).sort((a, b) => a - b).slice(0, 4);
   }, [total]);
     
   useEffect(() => {
-    // Reset cash tendered when the total changes (new order)
-    setCashTendered(total);
+    setCashTendered(total.toFixed(2));
+    hasBeenFocused.current = false;
+    const timer = setTimeout(() => { inputRef.current?.focus(); }, 100);
+    return () => clearTimeout(timer);
   }, [total]);
+
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (!hasBeenFocused.current) {
+        e.target.select();
+        hasBeenFocused.current = true;
+    }
+  };
+
+  const handleCashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) {
+          setCashTendered(e.target.value);
+      }
+  };
+
+  const handleProcessCashPayment = () => {
+      if (!cashPaymentType) return;
+      onProcessPayment(cashPaymentType.name, parseFloat(cashTendered) || 0);
+  };
+  
+  const handleProcessOtherPayment = (methodName: string) => {
+      onProcessPayment(methodName, total);
+  };
 
   const handlePrintReceipt = async () => {
     if (!paymentResult || isPrinting) return;
-    
     setIsPrinting(true);
     const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-    const result = await printReceipt({
-        items: orderItems,
-        total,
-        subtotal,
-        tax,
-        receiptId: paymentResult.receiptId,
-        paymentMethod: paymentResult.method,
-        settings,
-        printer,
-    });
+    const result = await printReceipt({ items: orderItems, total, subtotal, tax, receiptId: paymentResult.receiptId, paymentMethod: paymentResult.method, settings, printer });
     setIsPrinting(false);
-
-    if (!result.success) {
-      alert(`Print Failed: ${result.message}`);
-    }
+    if (!result.success) alert(`Print Failed: ${result.message}`);
   };
   
   const StaticTicketPanel = () => (
@@ -86,7 +87,6 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
         <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">Ticket</h2>
         <UserIcon className="h-6 w-6 text-gray-400 dark:text-slate-500" />
       </header>
-      {/* Ticket Items */}
       <div className="flex-1 overflow-y-auto p-4">
         <ul className="space-y-2 mb-6">
           {orderItems.map(item => (
@@ -96,8 +96,6 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
             </li>
           ))}
         </ul>
-        
-        {/* Totals Section */}
         <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
           <div className="space-y-1 text-sm">
             <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
@@ -124,127 +122,67 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
         <h1 className="text-7xl font-bold font-mono text-slate-800 dark:text-slate-100 mb-8">{total.toFixed(2)}</h1>
         <div className="w-full max-w-md space-y-4">
-          <button onClick={() => onProcessPayment('QR', total)} className="w-full text-left p-4 bg-white dark:bg-slate-700 rounded-lg shadow-md border dark:border-slate-600 flex items-center justify-between hover:ring-2 hover:ring-indigo-500 transition-all">
-            <span className="font-bold text-lg text-slate-800 dark:text-slate-200">QR FEDERAL BANK</span>
-            <span className="text-sm font-medium text-white bg-indigo-500 px-3 py-1 rounded-full">Pay</span>
-          </button>
+          {/* Other Payment Methods */}
+          {otherPaymentTypes.map(pt => (
+            <button key={pt.id} onClick={() => handleProcessOtherPayment(pt.name)} className="w-full text-left p-4 bg-white dark:bg-slate-700 rounded-lg shadow-md border dark:border-slate-600 flex items-center justify-between hover:ring-2 hover:ring-indigo-500 transition-all">
+              <span className="flex items-center gap-3 font-bold text-lg text-slate-800 dark:text-slate-200">
+                <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6"/>
+                {pt.name}
+              </span>
+              <span className="text-sm font-medium text-white bg-indigo-500 px-3 py-1 rounded-full">Pay</span>
+            </button>
+          ))}
           
           {/* Cash Entry */}
-          <div className="flex items-center gap-2">
-            <div className="relative flex-grow">
-                <input 
-                  type="number"
-                  inputMode="decimal"
-                  value={cashTendered}
-                  onFocus={(e) => e.target.select()}
-                  onChange={(e) => setCashTendered(parseFloat(e.target.value) || 0)}
-                  className="w-full p-4 text-lg font-mono bg-white dark:bg-slate-700 rounded-lg shadow-md border dark:border-slate-600 focus:ring-2 focus:ring-indigo-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+          {cashPaymentType && (
+            <div className="flex items-center gap-2 pt-2">
+              <div className="relative flex-grow">
+                  <input ref={inputRef} type="text" inputMode="decimal" value={cashTendered} onFocus={handleFocus} onChange={handleCashChange} onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()} className="w-full p-4 text-lg font-mono bg-white dark:bg-slate-700 rounded-lg shadow-md border dark:border-slate-600 focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <button onClick={handleProcessCashPayment} className="p-4 bg-emerald-500 text-white font-bold rounded-lg shadow-md text-lg hover:bg-emerald-600 transition-colors">
+                {cashPaymentType.name}
+              </button>
             </div>
-            <button onClick={() => onProcessPayment('Cash', cashTendered)} className="p-4 bg-emerald-500 text-white font-bold rounded-lg shadow-md text-lg hover:bg-emerald-600 transition-colors">
-              CHARGE
-            </button>
-          </div>
+          )}
         </div>
         
-        {/* Smart Suggestions */}
-        <div className="flex gap-3 mt-6 flex-wrap justify-center">
-            {uniqueQuickCash.map(amount => (
-                <button key={amount} onClick={() => { setCashTendered(amount); onProcessPayment('Cash', amount); }} className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">
-                    {amount.toFixed(2)}
-                </button>
-            ))}
-        </div>
+        {cashPaymentType && (
+            <div className="flex gap-3 mt-6 flex-wrap justify-center">
+                {uniqueQuickCash.map(amount => (
+                    <button key={amount} onClick={() => onProcessPayment('Cash', amount)} className="px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">
+                        {amount.toFixed(2)}
+                    </button>
+                ))}
+            </div>
+        )}
       </div>
     </>
   );
 
   const ChangeWorkspace = () => {
-    const [email, setEmail] = useState('');
-    const [isSending, setIsSending] = useState(false);
-
     const change = paymentResult?.change || 0;
     const amountTendered = total + change;
-
-    const handleEmailReceipt = () => {
-        if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
-            alert("Please enter a valid email address.");
-            return;
-        }
-        setIsSending(true);
-        console.log(`Emailing receipt to ${email}`);
-        // Simulate sending email
-        setTimeout(() => {
-            setIsSending(false);
-            alert(`Receipt sent to ${email}`);
-            setEmail('');
-        }, 1500);
-    };
-    
     return (
         <div className="flex-1 flex flex-col justify-center items-center p-4 sm:p-6 bg-slate-50 dark:bg-slate-900/50">
             <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-6 text-center animate-fadeIn">
-                
                 <AnimatedCheckIcon className="h-16 w-16 mx-auto mb-2" />
-
-                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
-                    Transaction Complete
-                </h2>
-
+                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Transaction Complete</h2>
                 <div className="my-6 space-y-2 text-sm">
-                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                        <span>Total:</span>
-                        <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{total.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-slate-500 dark:text-slate-400">
-                        <span>{paymentResult?.method === 'Cash' ? 'Tendered:' : 'Paid:'}</span>
-                        <span className="font-mono font-medium text-slate-700 dark:text-slate-300">{amountTendered.toFixed(2)}</span>
-                    </div>
+                    <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>Total:</span><span className="font-mono font-medium text-slate-700 dark:text-slate-300">{total.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-slate-500 dark:text-slate-400"><span>{paymentResult?.method === 'Cash' ? 'Tendered:' : 'Paid:'}</span><span className="font-mono font-medium text-slate-700 dark:text-slate-300">{amountTendered.toFixed(2)}</span></div>
                 </div>
-
-                <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-4">
-                    <label className="text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Change</label>
-                    <p className="text-4xl sm:text-5xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 break-all">
-                        {change.toFixed(2)}
-                    </p>
-                </div>
-                
+                {paymentResult?.method === 'Cash' && change > 0 && (
+                    <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-4">
+                        <label className="text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Change</label>
+                        <p className="text-4xl sm:text-5xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 break-all">{change.toFixed(2)}</p>
+                    </div>
+                )}
                 <div className="mt-8 space-y-3">
-                    {/* Email Input */}
-                    <div className="flex items-center gap-2">
-                        <div className="relative flex-grow">
-                             <MailIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-5 w-5" />
-                             <input 
-                               type="email" 
-                               value={email}
-                               onChange={(e) => setEmail(e.target.value)}
-                               placeholder="Email receipt..." 
-                               className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700/50 focus:ring-2 focus:ring-indigo-500 dark:text-white" 
-                             />
-                        </div>
-                        <button 
-                            onClick={handleEmailReceipt}
-                            disabled={isSending || !email}
-                            className="px-4 py-3 bg-indigo-500 text-white font-semibold rounded-lg hover:bg-indigo-600 transition-colors disabled:bg-indigo-300 dark:disabled:bg-indigo-800/50 disabled:cursor-not-allowed flex-shrink-0"
-                        >
-                            {isSending ? '...' : 'Send'}
-                        </button>
-                    </div>
-                    
-                    {/* Print Button */}
-                    <button 
-                      onClick={handlePrintReceipt} 
-                      disabled={isPrinting}
-                      className="w-full flex items-center justify-center gap-2 p-3 border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
-                    >
-                        <PrintIcon className="h-5 w-5" />
-                        {isPrinting ? 'Printing...' : 'Print Receipt'}
+                    <button onClick={handlePrintReceipt} disabled={isPrinting} className="w-full flex items-center justify-center gap-2 p-3 border-2 border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50">
+                        <PrintIcon className="h-5 w-5" /> {isPrinting ? 'Printing...' : 'Print Receipt'}
                     </button>
-                    
-                    {/* New Sale Button */}
                     <button onClick={onNewSale} className="w-full flex items-center justify-center gap-2 p-4 bg-emerald-500 text-white font-bold text-lg rounded-lg hover:bg-emerald-600 shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98]">
-                        <CheckIcon className="h-6 w-6" />
-                        New Sale
+                        <CheckIcon className="h-6 w-6" /> New Sale
                     </button>
                 </div>
             </div>

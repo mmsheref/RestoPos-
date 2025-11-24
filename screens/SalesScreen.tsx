@@ -48,7 +48,7 @@ const SalesScreen: React.FC = () => {
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
   // Payment state
-  const [paymentResult, setPaymentResult] = useState<{ method: 'Cash' | 'QR', change: number, receiptId: string } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string } | null>(null);
 
   // Modal states
   const [isManageGridsModalOpen, setIsManageGridsModalOpen] = useState(false);
@@ -131,7 +131,7 @@ const SalesScreen: React.FC = () => {
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   
-  const handleProcessPayment = useCallback((method: 'Cash' | 'QR', tendered: number) => {
+  const handleProcessPayment = useCallback((method: string, tendered: number) => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
     addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, paymentMethod: method });
