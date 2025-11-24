@@ -310,9 +310,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
       const batch = writeBatch(db);
       const gridsRef = collection(db, 'users', getUid(), 'custom_grids');
+
+      const oldGridsMap = new Map(customGrids.map(g => [g.id, g]));
+      const newGridsMap = new Map(newGrids.map(g => [g.id, g]));
+
+      // Identify and batch deletions
+      for (const oldGrid of customGrids) {
+          if (!newGridsMap.has(oldGrid.id)) {
+              batch.delete(doc(gridsRef, oldGrid.id));
+          }
+      }
+
+      // Identify and batch additions/updates
+      for (const [index, newGrid] of newGrids.entries()) {
+          const oldGrid = oldGridsMap.get(newGrid.id);
+          const newGridWithOrder = { ...newGrid, order: index };
+
+          // Add to batch only if it's a new grid or if its name/order has changed.
+          // This minimizes write operations, saving cost and improving performance.
+          if (!oldGrid || oldGrid.name !== newGridWithOrder.name || oldGrid.order !== newGridWithOrder.order) {
+              batch.set(doc(gridsRef, newGrid.id), newGridWithOrder);
+          }
+      }
+
       try {
-          customGrids.forEach(g => batch.delete(doc(gridsRef, g.id)));
-          newGrids.forEach((grid, index) => batch.set(doc(gridsRef, grid.id), { ...grid, order: index }));
           await batch.commit();
       } catch (e) { console.error("Failed to save grid changes to DB:", e); alert("Failed to save grid changes."); }
   }, [customGrids, getUid]);
