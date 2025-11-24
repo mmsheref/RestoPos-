@@ -25,16 +25,15 @@ const AppRoutes: React.FC = () => {
         );
     }
 
-    // --- FOR TESTING: Login screen is temporarily removed. ---
-    // if (!user) {
-    //     return (
-    //         <Routes>
-    //             <Route path="/login" element={<LoginScreen />} />
-    //             <Route path="/signup" element={<SignupScreen />} />
-    //             <Route path="*" element={<Navigate to="/login" replace />} />
-    //         </Routes>
-    //     );
-    // }
+    if (!user) {
+        return (
+            <Routes>
+                <Route path="/login" element={<LoginScreen />} />
+                <Route path="/signup" element={<SignupScreen />} />
+                <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+        );
+    }
 
     return (
         <Layout>
