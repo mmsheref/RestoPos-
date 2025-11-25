@@ -154,8 +154,6 @@ export interface AppContextType {
 
   // Data
   isLoading: boolean;
-  isSyncing: boolean;
-  isOnline: boolean;
   manualSync: () => Promise<void>;
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
