@@ -2,11 +2,10 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { NAV_LINKS, SignOutIcon } from '../constants';
+import { NAV_LINKS, SignOutIcon, APP_VERSION } from '../constants';
 
 const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, user, signOut } = useAppContext();
-  const appVersion = "2.2.0"; // Example version
 
   return (
     <>
@@ -48,7 +47,7 @@ const NavDrawer: React.FC = () => {
         </nav>
         
         <div className="px-4 py-2 mt-auto text-center">
-            <p className="text-xs text-slate-400">Version {appVersion}</p>
+            <p className="text-xs text-slate-400">Version {APP_VERSION}</p>
             <p className="text-xs text-slate-400">Made with ❤️ by Ameer</p>
         </div>
 

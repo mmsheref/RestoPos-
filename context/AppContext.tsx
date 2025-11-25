@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
@@ -11,6 +12,7 @@ import { db, signOutUser, clearAllData, firebaseConfig, auth, enableNetwork, dis
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import FirebaseError from '../components/FirebaseError';
+import { APP_VERSION } from '../constants';
 
 type Theme = 'light' | 'dark';
 
@@ -377,9 +379,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid]);
 
   const deleteItem = useCallback(async (id: string) => {
-    try { await deleteDoc(doc(db, 'users', getUid(), 'items', id)); } 
-    catch (e) { console.error(e); alert("Failed to delete item."); }
-  }, [getUid]);
+    const uid = getUid();
+    const batch = writeBatch(db);
+
+    // 1. Mark the item for deletion
+    batch.delete(doc(db, 'users', uid, 'items', id));
+
+    // 2. Find and remove the item from all custom grids to prevent "ghost" items
+    const gridsToUpdate = customGrids.filter(grid => Array.isArray(grid.itemIds) && grid.itemIds.includes(id));
+    
+    gridsToUpdate.forEach(grid => {
+      const newItemIds = grid.itemIds.map(itemId => (itemId === id ? null : itemId));
+      const gridRef = doc(db, 'users', uid, 'custom_grids', grid.id);
+      batch.update(gridRef, { itemIds: newItemIds });
+    });
+
+    try {
+      await batch.commit();
+      console.log(`Item ${id} deleted and removed from ${gridsToUpdate.length} grids.`);
+    } catch (e) {
+      console.error("Failed to delete item and clean up grids:", e);
+      alert("Failed to delete item.");
+    }
+  }, [getUid, customGrids]);
 
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
       try { await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticket); } 
@@ -505,7 +527,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const exportData = useCallback(async () => {
     const backup: BackupData = {
-        version: '2.2-tables', timestamp: new Date().toISOString(),
+        version: APP_VERSION, timestamp: new Date().toISOString(),
         settings, items, printers, paymentTypes, receipts, savedTickets, customGrids, tables
     };
     const jsonString = JSON.stringify(backup, null, 2);
