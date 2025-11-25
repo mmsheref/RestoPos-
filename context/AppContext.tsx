@@ -1,6 +1,9 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid, PaymentType, PaymentMethodType } from '../types';
+import { 
+    Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
+    CustomGrid, PaymentType, OrderItem, AppContextType 
+} from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -25,59 +28,6 @@ interface FirebaseErrorState {
   message: string;
   instructions: string[];
   projectId: string;
-}
-
-interface AppContextType {
-  user: User | null;
-  signOut: () => void;
-  isDrawerOpen: boolean;
-  openDrawer: () => void;
-  closeDrawer: () => void;
-  toggleDrawer: () => void;
-  headerTitle: string;
-  setHeaderTitle: (title: string) => void;
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  
-  // Data
-  isLoading: boolean;
-  settings: AppSettings;
-  updateSettings: (newSettings: Partial<AppSettings>) => void;
-  
-  printers: Printer[];
-  addPrinter: (printer: Printer) => void;
-  removePrinter: (printerId: string) => void;
-
-  paymentTypes: PaymentType[];
-  addPaymentType: (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => void;
-  updatePaymentType: (paymentType: PaymentType) => void;
-  removePaymentType: (paymentTypeId: string) => void;
-  
-  receipts: Receipt[];
-  addReceipt: (receipt: Receipt) => void;
-  loadMoreReceipts: () => Promise<void>;
-  hasMoreReceipts: boolean;
-  
-  items: Item[];
-  addItem: (item: Item) => void;
-  updateItem: (item: Item) => void;
-  deleteItem: (id: string) => void;
-
-  savedTickets: SavedTicket[];
-  saveTicket: (ticket: SavedTicket) => void;
-  removeTicket: (ticketId: string) => void;
-
-  customGrids: CustomGrid[];
-  addCustomGrid: (grid: CustomGrid) => void;
-  updateCustomGrid: (grid: CustomGrid) => void;
-  deleteCustomGrid: (id: string) => void;
-  setCustomGrids: (grids: CustomGrid[]) => void;
-
-  // Backup
-  exportData: () => void;
-  restoreData: (data: BackupData) => void;
-  exportItemsCsv: () => void;
-  replaceItems: (items: Item[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -119,6 +69,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
+  
+  // --- Global Ticket State ---
+  const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   
   const [lastReceiptDoc, setLastReceiptDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
@@ -185,6 +138,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setUser(null);
             setItemsState([]); setReceiptsState([]); setPrintersState([]); setPaymentTypesState([]); setSavedTicketsState([]); setCustomGridsState([]);
             setSettingsState(DEFAULT_SETTINGS);
+            setCurrentOrder([]); // Clear order on sign out
             setIsLoading(false);
             localStorage.removeItem(ITEMS_CACHE_KEY);
             localStorage.removeItem(SETTINGS_CACHE_KEY);
@@ -202,6 +156,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!user) throw new Error("User not authenticated");
     return user.uid;
   }, [user]);
+
+  // --- START: Ticket Management Functions ---
+  const addToOrder = useCallback((item: Item) => {
+    setCurrentOrder(current => {
+      const existing = current.find(i => i.id === item.id);
+      if (existing) {
+        return current.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      }
+      return [...current, { ...item, quantity: 1 }];
+    });
+  }, []);
+
+  const removeFromOrder = useCallback((itemId: string) => {
+    setCurrentOrder(current => {
+      const existing = current.find(i => i.id === itemId);
+      if (existing && existing.quantity > 1) {
+        return current.map(i => i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
+      }
+      return current.filter(i => i.id !== itemId);
+    });
+  }, []);
+
+  const deleteLineItem = useCallback((itemId: string) => {
+    setCurrentOrder(prev => prev.filter(i => i.id !== itemId));
+  }, []);
+
+  const updateOrderItemQuantity = useCallback((itemId: string, newQuantity: number) => {
+    if (isNaN(newQuantity) || newQuantity <= 0) {
+      deleteLineItem(itemId);
+    } else {
+      setCurrentOrder(prev => prev.map(i => i.id === itemId ? { ...i, quantity: newQuantity } : i));
+    }
+  }, [deleteLineItem]);
+  
+  const clearOrder = useCallback(() => setCurrentOrder([]), []);
+  const loadOrder = useCallback((items: OrderItem[]) => setCurrentOrder(items), []);
+  // --- END: Ticket Management Functions ---
+
 
   const loadMoreReceipts = useCallback(async () => {
       if (!lastReceiptDoc || !user) return;
@@ -252,13 +244,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addPaymentType = useCallback(async (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => {
       const id = `pt_${Date.now()}`;
-      // New payment types are always of type 'other' by default. 'Cash' is a special, built-in type.
-      const newPaymentType: PaymentType = { 
-        ...paymentType, 
-        id, 
-        enabled: true, 
-        type: 'other' 
-      };
+      const newPaymentType: PaymentType = { ...paymentType, id, enabled: true, type: 'other' };
       try { await setDoc(doc(db, 'users', getUid(), 'payment_types', id), newPaymentType); } 
       catch (e) { console.error(e); alert("Failed to add payment type."); }
   }, [getUid]);
@@ -323,23 +309,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const oldGridsMap = new Map(customGrids.map(g => [g.id, g]));
       const newGridsMap = new Map(newGrids.map(g => [g.id, g]));
-
-      // Identify and batch deletions
+      
       for (const oldGrid of customGrids) {
-          if (!newGridsMap.has(oldGrid.id)) {
-              batch.delete(doc(gridsRef, oldGrid.id));
-          }
+          if (!newGridsMap.has(oldGrid.id)) batch.delete(doc(gridsRef, oldGrid.id));
       }
 
-      // Identify and batch additions/updates
       for (const [index, newGrid] of newGrids.entries()) {
-          // FIX: Renamed `oldGrid` to `existingGrid` to avoid potential scope confusion with the loop variable above and to resolve a TypeScript type inference issue.
-          // FIX: Explicitly cast the type of `existingGrid` to resolve the TypeScript error where its type was inferred as `unknown`.
           const existingGrid = oldGridsMap.get(newGrid.id) as CustomGrid | undefined;
           const newGridWithOrder = { ...newGrid, order: index };
-
-          // Add to batch only if it's a new grid or if its name/order has changed.
-          // This minimizes write operations, saving cost and improving performance.
           if (!existingGrid || existingGrid.name !== newGridWithOrder.name || existingGrid.order !== newGridWithOrder.order) {
               batch.set(doc(gridsRef, newGrid.id), newGridWithOrder);
           }
@@ -383,7 +360,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const exportData = useCallback(async () => {
     const backup: BackupData = {
         version: '2.1-dynamic-payments', timestamp: new Date().toISOString(),
-        settings, items, categories: [], printers, paymentTypes, receipts, savedTickets, customGrids
+        settings, items, printers, paymentTypes, receipts, savedTickets, customGrids
     };
     const jsonString = JSON.stringify(backup, null, 2);
     const fileName = `pos_backup_${Date.now()}.json`;
@@ -424,8 +401,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   if (initializationError) return <FirebaseError error={initializationError} />;
 
-  return (
-    <AppContext.Provider value={{ 
+  const contextValue: AppContextType = {
       user, signOut: signOutUser,
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
@@ -438,8 +414,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       items, addItem, updateItem, deleteItem,
       savedTickets, saveTicket, removeTicket,
       customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
+      currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
       exportData, restoreData, exportItemsCsv, replaceItems
-    }}>
+  };
+
+  return (
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );
