@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
-import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid, PaymentType } from '../types';
+import { Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, CustomGrid, PaymentType, PaymentMethodType } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -49,7 +49,7 @@ interface AppContextType {
   removePrinter: (printerId: string) => void;
 
   paymentTypes: PaymentType[];
-  addPaymentType: (paymentType: Omit<PaymentType, 'id' | 'enabled'>) => void;
+  addPaymentType: (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => void;
   updatePaymentType: (paymentType: PaymentType) => void;
   removePaymentType: (paymentTypeId: string) => void;
   
@@ -250,9 +250,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     catch (e) { alert("Failed to delete printer."); }
   }, [getUid]);
 
-  const addPaymentType = useCallback(async (paymentType: Omit<PaymentType, 'id' | 'enabled'>) => {
+  const addPaymentType = useCallback(async (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => {
       const id = `pt_${Date.now()}`;
-      const newPaymentType = { ...paymentType, id, enabled: true };
+      // New payment types are always of type 'other' by default. 'Cash' is a special, built-in type.
+      const newPaymentType: PaymentType = { 
+        ...paymentType, 
+        id, 
+        enabled: true, 
+        type: 'other' 
+      };
       try { await setDoc(doc(db, 'users', getUid(), 'payment_types', id), newPaymentType); } 
       catch (e) { console.error(e); alert("Failed to add payment type."); }
   }, [getUid]);
@@ -263,6 +269,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid]);
 
   const removePaymentType = useCallback(async (paymentTypeId: string) => {
+      if (paymentTypeId === 'cash') {
+          alert("The 'Cash' payment type is essential and cannot be removed.");
+          return;
+      }
       try { await deleteDoc(doc(db, 'users', getUid(), 'payment_types', paymentTypeId)); } 
       catch (e) { console.error(e); alert("Failed to delete payment type."); }
   }, [getUid]);
