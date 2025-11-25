@@ -4,7 +4,7 @@ import { MenuIcon, SyncIcon, OfflineIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
-export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data' | 'about';
+export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data';
 
 const SettingsScreen: React.FC = () => {
     const { openDrawer, isSyncing, isOnline } = useAppContext();
@@ -27,7 +27,6 @@ const SettingsScreen: React.FC = () => {
         printers: 'Printers',
         store_info: 'Store Information',
         data: 'Data Management',
-        about: 'About'
     };
     const detailTitle = categoryMap[activeCategory];
 

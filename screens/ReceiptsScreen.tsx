@@ -202,7 +202,7 @@ const ReceiptsScreen: React.FC = () => {
                         <ul>
                             {receipts.map((receipt) => (
                             <li key={receipt.id}>
-                                <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-border flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-indigo-50 dark:bg-slate-700/50' : 'hover:bg-surface-muted'}`}>
+                                <button onClick={() => handleSelectReceipt(receipt)} className={`w-full text-left p-4 border-b border-border flex justify-between items-center transition-colors duration-150 ${selectedReceipt?.id === receipt.id ? 'bg-emerald-50 dark:bg-slate-700/50' : 'hover:bg-surface-muted'}`}>
                                 <div className="flex items-center gap-3">
                                     <PaymentMethodIcon iconName={paymentTypeIconMap.get(receipt.paymentMethod)} className="h-6 w-6 text-text-secondary" />
                                     <div>
