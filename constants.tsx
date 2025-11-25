@@ -236,6 +236,14 @@ export const SyncIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+/** A new icon to indicate the application is offline. */
+export const OfflineIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 17a5 5 0 0 0-1.8-10h-1.4a8 8 0 0 0-14.8 0H4a5 5 0 0 0-1.8 10"/>
+    <line x1="2" y1="2" x2="22" y2="22"/>
+  </svg>
+);
+
 
 export const NAV_LINKS = [
   { path: '/sales', label: 'Sales', Icon: SalesIcon },
