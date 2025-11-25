@@ -148,6 +148,10 @@ export interface AppContextType {
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
   
+  // Onboarding
+  showOnboarding: boolean;
+  completeOnboarding: () => void;
+
   // Data
   isLoading: boolean;
   isSyncing: boolean;

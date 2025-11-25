@@ -33,6 +33,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const ITEMS_CACHE_KEY = 'pos_items_cache';
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
+const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -41,6 +42,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState(true);
   const [initializationError, setInitializationError] = useState<FirebaseErrorState | null>(null);
   
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem(ONBOARDING_COMPLETED_KEY);
+  });
+
+  const completeOnboarding = useCallback(() => {
+    localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+    setShowOnboarding(false);
+  }, []);
+
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
         const storedPrefs = localStorage.getItem('theme');
@@ -543,6 +553,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
       theme, setTheme,
+      showOnboarding, completeOnboarding,
       isLoading, isSyncing, isOnline, manualSync,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
