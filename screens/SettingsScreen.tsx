@@ -1,14 +1,13 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { MenuIcon } from '../constants';
+import { MenuIcon, SyncIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
 export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'printers' | 'store_info' | 'data' | 'about';
 
 const SettingsScreen: React.FC = () => {
-    const { openDrawer } = useAppContext();
+    const { openDrawer, isSyncing } = useAppContext();
     const [activeCategory, setActiveCategory] = useState<SettingsCategory>('appearance');
     
     // State to manage view on mobile (list vs detail)
@@ -39,7 +38,10 @@ const SettingsScreen: React.FC = () => {
                     <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary">
                         <MenuIcon className="h-6 w-6" />
                     </button>
-                    <h1 className="text-xl font-semibold text-text-primary ml-4">Settings</h1>
+                    <div className="flex items-center gap-2 ml-4">
+                        {isSyncing && <SyncIcon className="h-5 w-5 text-primary" />}
+                        <h1 className="text-xl font-semibold text-text-primary">Settings</h1>
+                    </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <SettingsNav

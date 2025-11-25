@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
     CustomGrid, PaymentType, OrderItem, AppContextType 
@@ -7,7 +7,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
-import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
+import { db, signOutUser, clearAllData, firebaseConfig, auth, enableNetwork, disableNetwork } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import FirebaseError from '../components/FirebaseError';
@@ -75,13 +75,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [lastReceiptDoc, setLastReceiptDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
 
+  // --- Sync State ---
+  const [isSyncing, setIsSyncing] = useState(false);
+  const syncTimeoutRef = useRef<number | null>(null);
+
+  const triggerSyncIndicator = useCallback(() => {
+    if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+    setIsSyncing(true);
+    syncTimeoutRef.current = window.setTimeout(() => setIsSyncing(false), 1500);
+  }, []);
+
+  const manualSync = useCallback(async () => {
+    console.log("Attempting manual sync...");
+    triggerSyncIndicator();
+    try {
+        await disableNetwork(db);
+        await enableNetwork(db);
+        console.log("Network re-enabled. Sync should trigger.");
+    } catch (e) {
+        console.error("Manual sync failed:", e);
+        alert("Failed to force sync. Check your connection.");
+    }
+  }, [triggerSyncIndicator]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
         if (currentUser) {
             setUser(currentUser);
             const uid = currentUser.uid;
             
-            const unsubItems = onSnapshot(collection(db, 'users', uid, 'items'), (snapshot) => {
+            const createListener = (collectionName: string, callback: (snapshot: any) => void) => {
+                const collRef = collection(db, 'users', uid, collectionName);
+                return onSnapshot(collRef, (snapshot) => {
+                    triggerSyncIndicator();
+                    callback(snapshot);
+                });
+            };
+            
+            const createOrderedListener = (collectionName: string, orderField: string, callback: (snapshot: any) => void) => {
+                const q = query(collection(db, 'users', uid, collectionName), orderBy(orderField));
+                return onSnapshot(q, (snapshot) => {
+                    triggerSyncIndicator();
+                    callback(snapshot);
+                });
+            };
+
+            const unsubItems = createListener('items', (snapshot) => {
                   const itemsData = snapshot.docs.map(doc => ({ ...doc.data() } as Item));
                   setItemsState(itemsData);
                   localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
@@ -89,6 +128,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(25));
             const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
+                triggerSyncIndicator();
                 const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 setReceiptsState(prev => {
                     const existingIds = new Set(prev.map(r => r.id));
@@ -102,13 +142,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 });
             });
 
-            const unsubPrinters = onSnapshot(collection(db, 'users', uid, 'printers'), (snapshot) => setPrintersState(snapshot.docs.map(doc => doc.data() as Printer)));
-            const unsubPaymentTypes = onSnapshot(collection(db, 'users', uid, 'payment_types'), (snapshot) => setPaymentTypesState(snapshot.docs.map(doc => doc.data() as PaymentType)));
-            const unsubTickets = onSnapshot(collection(db, 'users', uid, 'saved_tickets'), (snapshot) => setSavedTicketsState(snapshot.docs.map(doc => doc.data() as SavedTicket)));
-            const qGrids = query(collection(db, 'users', uid, 'custom_grids'), orderBy('order'));
-            const unsubGrids = onSnapshot(qGrids, (snapshot) => setCustomGridsState(snapshot.docs.map(doc => doc.data() as CustomGrid)));
+            const unsubPrinters = createListener('printers', (snapshot) => setPrintersState(snapshot.docs.map(doc => doc.data() as Printer)));
+            const unsubPaymentTypes = createListener('payment_types', (snapshot) => setPaymentTypesState(snapshot.docs.map(doc => doc.data() as PaymentType)));
+            const unsubTickets = createListener('saved_tickets', (snapshot) => setSavedTicketsState(snapshot.docs.map(doc => doc.data() as SavedTicket)));
+            const unsubGrids = createOrderedListener('custom_grids', 'order', (snapshot) => setCustomGridsState(snapshot.docs.map(doc => doc.data() as CustomGrid)));
 
             const unsubSettings = onSnapshot(doc(db, 'users', uid, 'config', 'settings'), async (docSnap) => {
+                  triggerSyncIndicator();
                   if (docSnap.exists()) {
                     const newSettings = docSnap.data() as AppSettings;
                     setSettingsState(newSettings);
@@ -117,7 +157,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     setSettingsState(DEFAULT_SETTINGS);
                     try {
                       await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
-                       // Create default payment types for new user
                        const paymentTypesSnapshot = await getDocs(collection(db, 'users', uid, 'payment_types'));
                        if (paymentTypesSnapshot.empty) {
                            const batch = writeBatch(db);
@@ -137,7 +176,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setUser(null);
             setItemsState([]); setReceiptsState([]); setPrintersState([]); setPaymentTypesState([]); setSavedTicketsState([]); setCustomGridsState([]);
             setSettingsState(DEFAULT_SETTINGS);
-            setCurrentOrder([]); // Clear order on sign out
+            setCurrentOrder([]);
             setIsLoading(false);
             localStorage.removeItem(ITEMS_CACHE_KEY);
             localStorage.removeItem(SETTINGS_CACHE_KEY);
@@ -149,7 +188,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [triggerSyncIndicator]);
 
   const getUid = useCallback(() => {
     if (!user) throw new Error("User not authenticated");
@@ -161,17 +200,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentOrder(current => {
       const lastItem = current.length > 0 ? current[current.length - 1] : null;
 
-      // If the last item in the order is the same as the one being added, just increment its quantity.
       if (lastItem && lastItem.id === item.id) {
         const newOrder = [...current];
         newOrder[newOrder.length - 1] = { ...lastItem, quantity: lastItem.quantity + 1 };
         return newOrder;
       } else {
-        // Otherwise, add a new line item to the end of the order.
         const newLineItem: OrderItem = {
           ...item,
           quantity: 1,
-          lineItemId: `L${Date.now()}-${Math.random()}` // Unique ID for this specific line
+          lineItemId: `L${Date.now()}-${Math.random()}`
         };
         return [...current, newLineItem];
       }
@@ -185,12 +222,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const itemToUpdate = current[itemIndex];
       if (itemToUpdate.quantity > 1) {
-        // If quantity > 1, just decrement it.
         const newOrder = [...current];
         newOrder[itemIndex] = { ...itemToUpdate, quantity: itemToUpdate.quantity - 1 };
         return newOrder;
       } else {
-        // If quantity is 1, remove the entire line item.
         return current.filter(i => i.lineItemId !== lineItemId);
       }
     });
@@ -202,10 +237,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateOrderItemQuantity = useCallback((lineItemId: string, newQuantity: number) => {
     if (isNaN(newQuantity) || newQuantity <= 0) {
-      // If the new quantity is invalid or zero, remove the line item.
       deleteLineItem(lineItemId);
     } else {
-      // Otherwise, update the quantity of the specific line item.
       setCurrentOrder(prev => prev.map(i => i.lineItemId === lineItemId ? { ...i, quantity: newQuantity } : i));
     }
   }, [deleteLineItem]);
@@ -213,7 +246,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const clearOrder = useCallback(() => setCurrentOrder([]), []);
   
   const loadOrder = useCallback((items: OrderItem[]) => {
-    // When loading an older ticket, ensure all items have a `lineItemId` for backward compatibility.
     const migratedItems = items.map(item => ({
       ...item,
       lineItemId: item.lineItemId || `L${Date.now()}-${Math.random()}`
@@ -434,7 +466,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
       theme, setTheme,
-      isLoading,
+      isLoading, isSyncing, manualSync,
       settings, updateSettings,
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,

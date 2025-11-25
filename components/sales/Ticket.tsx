@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
-import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
+import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon, SyncIcon } from '../../constants';
 import { printBill } from '../../utils/printerHelper';
+import { useAppContext } from '../../context/AppContext';
 
 interface TicketProps {
     className?: string;
@@ -47,6 +48,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
     handlePrimarySaveAction, onCharge, onOpenTickets, onSaveTicket, onClearTicket
   } = props;
   
+  const { manualSync } = useAppContext();
   const [isTicketMenuOpen, setTicketMenuOpen] = useState(false);
   const [isClearConfirmVisible, setIsClearConfirmVisible] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -65,23 +67,18 @@ const Ticket: React.FC<TicketProps> = (props) => {
   }, []);
   
   useEffect(() => {
-    // When confirm state becomes visible, ensure menu is closed.
     if (isClearConfirmVisible) {
         setTicketMenuOpen(false);
     }
   }, [isClearConfirmVisible]);
 
-  // Bug fix 1: Auto-scroll on new item
   useEffect(() => {
-    // Only scroll down when an item is added, not removed or quantity changed
     if (listContainerRef.current && currentOrder.length > prevOrderLength.current) {
         const container = listContainerRef.current;
-        // Using `setTimeout` to ensure the DOM has updated with the new item before scrolling
         setTimeout(() => {
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
         }, 0);
     }
-    // Update the ref to the current length for the next render
     prevOrderLength.current = currentOrder.length;
   }, [currentOrder]);
 
@@ -89,6 +86,9 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const handleTicketAction = async (action: string) => {
     setTicketMenuOpen(false);
     switch (action) {
+      case 'sync':
+        manualSync();
+        break;
       case 'clear':
         if (currentOrder.length === 0 && !editingTicket) return;
         setIsClearConfirmVisible(true);
@@ -188,6 +188,10 @@ const Ticket: React.FC<TicketProps> = (props) => {
                     className="absolute right-0 mt-2 w-56 bg-surface rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20"
                 >
                     <div className="py-1">
+                        <button onClick={() => handleTicketAction('sync')} className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">
+                            <SyncIcon className="h-4 w-4" /> Sync Data
+                        </button>
+                        <div className="border-t border-border my-1"></div>
                         <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">Clear Ticket</button>
                         <button onClick={() => handleTicketAction('print')} disabled={isPrinting} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted disabled:opacity-50">
                           {isPrinting ? 'Printing...' : 'Print Bill'}
