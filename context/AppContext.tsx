@@ -20,7 +20,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     taxRate: 5, 
     storeName: 'My Restaurant',
     storeAddress: '123 Food Street, Flavor Town',
-    receiptFooter: 'Follow us @myrestaurant'
+    receiptFooter: 'Follow us @myrestaurant',
+    instagramHandle: ''
 };
 
 interface FirebaseErrorState {
