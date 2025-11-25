@@ -4,7 +4,7 @@ import { MenuIcon, SyncIcon, OfflineIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
-export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'printers' | 'store_info' | 'data' | 'about';
+export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data' | 'about';
 
 const SettingsScreen: React.FC = () => {
     const { openDrawer, syncState } = useAppContext();
@@ -23,6 +23,7 @@ const SettingsScreen: React.FC = () => {
         appearance: 'Appearance',
         financial: 'Financial',
         payment_types: 'Payment Types',
+        tables: 'Tables & Quick Select',
         printers: 'Printers',
         store_info: 'Store Information',
         data: 'Data Management',
