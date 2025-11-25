@@ -260,8 +260,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
           </div>
           <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
-            <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-between items-center px-4">
-              <span>Charge</span><span className="font-mono">{total.toFixed(2)}</span>
+            <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center">
+              Charge
             </button>
           </div>
         </div>
