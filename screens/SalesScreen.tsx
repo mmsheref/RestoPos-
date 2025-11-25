@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -77,6 +77,9 @@ const SalesScreen: React.FC = () => {
   }>({ isOpen: false, position: { top: 0, left: 0 }, item: null, slotIndex: -1 });
 
   const [isTicketVisible, setIsTicketVisible] = useState(false);
+  
+  // Ref for the scrollable item grid container, used for virtualization.
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     if (salesView === 'payment') setHeaderTitle('Checkout');
@@ -255,7 +258,7 @@ const SalesScreen: React.FC = () => {
       <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} />
         <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
-          <div className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
             {items.length === 0 && !debouncedSearchQuery.trim() ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
                 <div className="max-w-md">
@@ -279,6 +282,7 @@ const SalesScreen: React.FC = () => {
                 onAddItemToOrder={addToOrder}
                 onAssignItem={handleOpenSelectItemModal}
                 onItemLongPress={handleItemLongPress}
+                scrollContainerRef={scrollContainerRef}
               />
             )}
           </div>
