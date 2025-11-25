@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
@@ -160,38 +159,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // --- START: Ticket Management Functions ---
   const addToOrder = useCallback((item: Item) => {
     setCurrentOrder(current => {
-      const existing = current.find(i => i.id === item.id);
-      if (existing) {
-        return current.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      const lastItem = current.length > 0 ? current[current.length - 1] : null;
+
+      // If the last item in the order is the same as the one being added, just increment its quantity.
+      if (lastItem && lastItem.id === item.id) {
+        const newOrder = [...current];
+        newOrder[newOrder.length - 1] = { ...lastItem, quantity: lastItem.quantity + 1 };
+        return newOrder;
+      } else {
+        // Otherwise, add a new line item to the end of the order.
+        const newLineItem: OrderItem = {
+          ...item,
+          quantity: 1,
+          lineItemId: `L${Date.now()}-${Math.random()}` // Unique ID for this specific line
+        };
+        return [...current, newLineItem];
       }
-      return [...current, { ...item, quantity: 1 }];
     });
   }, []);
 
-  const removeFromOrder = useCallback((itemId: string) => {
+  const removeFromOrder = useCallback((lineItemId: string) => {
     setCurrentOrder(current => {
-      const existing = current.find(i => i.id === itemId);
-      if (existing && existing.quantity > 1) {
-        return current.map(i => i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i);
+      const itemIndex = current.findIndex(i => i.lineItemId === lineItemId);
+      if (itemIndex === -1) return current;
+
+      const itemToUpdate = current[itemIndex];
+      if (itemToUpdate.quantity > 1) {
+        // If quantity > 1, just decrement it.
+        const newOrder = [...current];
+        newOrder[itemIndex] = { ...itemToUpdate, quantity: itemToUpdate.quantity - 1 };
+        return newOrder;
+      } else {
+        // If quantity is 1, remove the entire line item.
+        return current.filter(i => i.lineItemId !== lineItemId);
       }
-      return current.filter(i => i.id !== itemId);
     });
   }, []);
 
-  const deleteLineItem = useCallback((itemId: string) => {
-    setCurrentOrder(prev => prev.filter(i => i.id !== itemId));
+  const deleteLineItem = useCallback((lineItemId: string) => {
+    setCurrentOrder(prev => prev.filter(i => i.lineItemId !== lineItemId));
   }, []);
 
-  const updateOrderItemQuantity = useCallback((itemId: string, newQuantity: number) => {
+  const updateOrderItemQuantity = useCallback((lineItemId: string, newQuantity: number) => {
     if (isNaN(newQuantity) || newQuantity <= 0) {
-      deleteLineItem(itemId);
+      // If the new quantity is invalid or zero, remove the line item.
+      deleteLineItem(lineItemId);
     } else {
-      setCurrentOrder(prev => prev.map(i => i.id === itemId ? { ...i, quantity: newQuantity } : i));
+      // Otherwise, update the quantity of the specific line item.
+      setCurrentOrder(prev => prev.map(i => i.lineItemId === lineItemId ? { ...i, quantity: newQuantity } : i));
     }
   }, [deleteLineItem]);
   
   const clearOrder = useCallback(() => setCurrentOrder([]), []);
-  const loadOrder = useCallback((items: OrderItem[]) => setCurrentOrder(items), []);
+  
+  const loadOrder = useCallback((items: OrderItem[]) => {
+    // When loading an older ticket, ensure all items have a `lineItemId` for backward compatibility.
+    const migratedItems = items.map(item => ({
+      ...item,
+      lineItemId: item.lineItemId || `L${Date.now()}-${Math.random()}`
+    }));
+    setCurrentOrder(migratedItems);
+  }, []);
   // --- END: Ticket Management Functions ---
 
 

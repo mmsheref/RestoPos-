@@ -1,4 +1,3 @@
-
 import { User } from 'firebase/auth';
 
 /**
@@ -16,9 +15,12 @@ export interface Item {
 
 /**
  * Represents an item that has been added to the current order, including its quantity.
+ * A unique lineItemId allows for multiple lines of the same item in an order.
  */
 export interface OrderItem extends Item {
   quantity: number;
+  /** A unique identifier for this specific line item in the order. Essential for allowing multiple lines of the same item. */
+  lineItemId: string;
 }
 
 /**
@@ -174,9 +176,9 @@ export interface AppContextType {
   // The active order, managed globally to persist across UI changes like theme switching.
   currentOrder: OrderItem[];
   addToOrder: (item: Item) => void;
-  removeFromOrder: (itemId: string) => void;
-  deleteLineItem: (itemId: string) => void;
-  updateOrderItemQuantity: (itemId: string, newQuantity: number) => void;
+  removeFromOrder: (lineItemId: string) => void;
+  deleteLineItem: (lineItemId: string) => void;
+  updateOrderItemQuantity: (lineItemId: string, newQuantity: number) => void;
   clearOrder: () => void;
   loadOrder: (items: OrderItem[]) => void;
   // --- END: Global Ticket State ---

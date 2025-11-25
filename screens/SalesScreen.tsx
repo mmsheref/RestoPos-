@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -85,7 +84,7 @@ const SalesScreen: React.FC = () => {
   }, [editingTicket, currentOrder.length, setHeaderTitle, salesView]);
 
   const handleQuantityClick = useCallback((item: OrderItem) => {
-    setEditingQuantityItemId(item.id);
+    setEditingQuantityItemId(item.lineItemId);
     setTempQuantity(item.quantity.toString());
   }, []);
 
@@ -281,7 +280,8 @@ const SalesScreen: React.FC = () => {
         onClose={() => setIsTicketVisible(false)} currentOrder={currentOrder} editingTicket={editingTicket}
         savedTickets={savedTickets} settings={settings} total={total} subtotal={subtotal} tax={tax}
         editingQuantityItemId={editingQuantityItemId} tempQuantity={tempQuantity} setEditingQuantityItemId={setEditingQuantityItemId}
-        setTempQuantity={setTempQuantity} removeFromOrder={removeFromOrder} addToOrder={addToOrder} deleteLineItem={deleteLineItem}
+        setTempQuantity={setTempQuantity} removeFromOrder={removeFromOrder} deleteLineItem={deleteLineItem}
+        updateOrderItemQuantity={updateOrderItemQuantity}
         handleQuantityClick={handleQuantityClick} handleQuantityChangeCommit={handleQuantityChangeCommit}
         handleQuantityInputChange={(e) => /^\d*$/.test(e.target.value) && setTempQuantity(e.target.value)}
         handleQuantityInputKeyDown={(e) => { if (e.key === 'Enter') handleQuantityChangeCommit(); else if (e.key === 'Escape') setEditingQuantityItemId(null); }}
