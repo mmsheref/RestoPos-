@@ -1,9 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { SalesIcon, ItemsIcon, OfflineIcon } from '../constants';
 
 const OnboardingScreen: React.FC = () => {
   const { completeOnboarding } = useAppContext();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGetStarted = async () => {
+    setIsLoading(true);
+    const success = await completeOnboarding();
+    // If onboarding fails (permissions denied), reset loading state to allow retry.
+    // If successful, the component will unmount, so no need to reset state.
+    if (!success) {
+      setIsLoading(false);
+      alert(
+        'Permissions Required\n\n' +
+        'This app uses Bluetooth for printing receipts and Storage for data backups. ' +
+        'These features require your permission to function.\n\n' +
+        'Please grant these permissions when prompted, or enable them later in your device settings.'
+      );
+    }
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 text-center">
@@ -38,10 +55,11 @@ const OnboardingScreen: React.FC = () => {
         </div>
 
         <button
-          onClick={completeOnboarding}
-          className="w-full max-w-xs px-8 py-4 font-bold text-lg text-primary-content bg-primary rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-lg"
+          onClick={handleGetStarted}
+          disabled={isLoading}
+          className="w-full max-w-xs px-8 py-4 font-bold text-lg text-primary-content bg-primary rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-lg transition-opacity disabled:opacity-70"
         >
-          Get Started
+          {isLoading ? 'Requesting Permissions...' : 'Get Started'}
         </button>
       </div>
     </div>

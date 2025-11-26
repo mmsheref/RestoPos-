@@ -151,7 +151,7 @@ export interface AppContextType {
   
   // Onboarding
   showOnboarding: boolean;
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<boolean>;
 
   // Data
   isLoading: boolean;
