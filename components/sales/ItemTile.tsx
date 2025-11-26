@@ -44,13 +44,13 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({ item, mode, onAddItemToO
         return (
             <div
                 {...eventHandlers}
-                className={`relative w-full rounded-lg overflow-hidden cursor-pointer group shadow-sm border border-border bg-surface-muted ${isFixedGrid ? 'h-full' : 'aspect-square'}`}
+                className={`relative w-full rounded-lg overflow-hidden cursor-pointer shadow-sm border border-border bg-surface-muted ${isFixedGrid ? 'h-full' : 'aspect-square'} active:scale-95 transition-transform duration-100`}
                 aria-label={`Add ${item.name} to order`}
             >
                 <img 
                     src={item.imageUrl} 
                     alt={item.name} 
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110 z-0"
+                    className="absolute inset-0 w-full h-full object-cover z-0"
                     loading="lazy"
                     decoding="async"
                 />
@@ -66,7 +66,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({ item, mode, onAddItemToO
         return (
             <div
                 {...eventHandlers}
-                className={`relative w-full rounded-lg cursor-pointer group shadow-sm border border-border bg-surface flex flex-col justify-center items-center p-2 text-center transition-colors hover:bg-surface-muted ${isFixedGrid ? 'h-full' : 'aspect-square'}`}
+                className={`relative w-full rounded-lg cursor-pointer shadow-sm border border-border bg-surface flex flex-col justify-center items-center p-2 text-center transition-colors hover:bg-surface-muted ${isFixedGrid ? 'h-full' : 'aspect-square'} active:scale-95 transition-transform duration-100`}
                 aria-label={`Add ${item.name} to order`}
             >
                 <h3 className="font-semibold text-text-primary text-sm md:text-base leading-tight line-clamp-3">
