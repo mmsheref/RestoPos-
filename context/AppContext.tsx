@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
@@ -8,6 +7,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
+import { requestAppPermissions } from '../utils/permissions';
 import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, getDoc, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -50,9 +50,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return !localStorage.getItem(ONBOARDING_COMPLETED_KEY);
   });
 
-  const completeOnboarding = useCallback(() => {
+  const completeOnboarding = useCallback(async (): Promise<boolean> => {
+    // For native platforms, request permissions before completing.
+    if (Capacitor.isNativePlatform()) {
+      const permissionsGranted = await requestAppPermissions();
+      if (permissionsGranted) {
+        localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+        setShowOnboarding(false);
+        return true;
+      }
+      return false; // Permissions were denied
+    }
+    // For web, just complete immediately.
     localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
     setShowOnboarding(false);
+    return true;
   }, []);
 
   const [theme, setThemeState] = useState<Theme>(() => {

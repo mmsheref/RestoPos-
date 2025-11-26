@@ -221,9 +221,9 @@ const Ticket: React.FC<TicketProps> = (props) => {
             <>
                 {/* List Items */}
                 <div className="p-4 pb-2">
-                    <ul className="space-y-2 overflow-x-hidden">
+                    <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
-                        <li key={item.lineItemId} className="relative group bg-surface flex items-center text-sm p-2 rounded-lg shadow-sm border border-border select-none">
+                        <li key={item.lineItemId} className="relative group flex items-center text-sm py-3 border-b border-border last:border-b-0 select-none">
                         <div className="flex-grow">
                             <p className="font-semibold text-text-primary">{item.name}</p>
                             <p className="text-text-secondary">{item.price.toFixed(2)}</p>
