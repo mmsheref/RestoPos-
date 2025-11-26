@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useLocation, Navigate, Routes, Route } from 'react-router-dom';
 import Header from './Header';
@@ -49,7 +50,7 @@ const Layout: React.FC = () => {
       />}
       <NavDrawer />
       <main
-        className={`flex-1 flex flex-col shadow-lg overflow-hidden relative transition-transform duration-300 ease-in-out will-change-transform ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
+        className={`flex-1 flex flex-col shadow-lg overflow-hidden relative transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
       >
         {/* PERFORMANCE FIX: Use proper routing to only render the active screen. */}
         <Routes>

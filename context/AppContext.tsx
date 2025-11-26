@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
@@ -35,6 +36,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const ITEMS_CACHE_KEY = 'pos_items_cache';
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
+const GRIDS_CACHE_KEY = 'pos_grids_cache'; // New Cache Key
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -75,11 +77,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return cached ? JSON.parse(cached) : [];
   });
 
+  // Load Custom Grids from cache to prevent "pop-in" delay
+  const [customGrids, setCustomGridsState] = useState<CustomGrid[]>(() => {
+      const cached = localStorage.getItem(GRIDS_CACHE_KEY);
+      return cached ? JSON.parse(cached) : [];
+  });
+
   const [printers, setPrintersState] = useState<Printer[]>([]);
   const [paymentTypes, setPaymentTypesState] = useState<PaymentType[]>([]);
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
-  const [customGrids, setCustomGridsState] = useState<CustomGrid[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
   
   // --- Global Ticket State ---
@@ -149,11 +156,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setItemsState(itemsData);
                 localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
 
+                const gridsData = gridsSnap.docs.map(doc => doc.data() as CustomGrid);
+                setCustomGridsState(gridsData);
+                localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(gridsData));
+
                 setPrintersState(printersSnap.docs.map(doc => doc.data() as Printer));
                 setPaymentTypesState(paymentTypesSnap.docs.map(doc => doc.data() as PaymentType));
                 setTablesState(tablesSnap.docs.map(doc => doc.data() as Table));
                 setSavedTicketsState(ticketsSnap.docs.map(doc => doc.data() as SavedTicket));
-                setCustomGridsState(gridsSnap.docs.map(doc => doc.data() as CustomGrid));
+                
 
               } catch (e) {
                   console.error("Error fetching initial data:", e);
@@ -187,6 +198,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setIsLoading(false);
             localStorage.removeItem(ITEMS_CACHE_KEY);
             localStorage.removeItem(SETTINGS_CACHE_KEY);
+            localStorage.removeItem(GRIDS_CACHE_KEY);
         }
     }, (error) => {
         console.error("Firebase Auth error:", error);

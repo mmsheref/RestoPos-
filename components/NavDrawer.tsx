@@ -1,11 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS, SignOutIcon, APP_VERSION } from '../constants';
+import ConfirmModal from './modals/ConfirmModal';
 
 const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, user, signOut } = useAppContext();
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
+  const handleSignOutClick = () => {
+    setIsSignOutModalOpen(true);
+  };
+
+  const confirmSignOut = () => {
+    signOut();
+    setIsSignOutModalOpen(false);
+  };
 
   return (
     <>
@@ -58,7 +69,7 @@ const NavDrawer: React.FC = () => {
                 </div>
             )}
             <button 
-                onClick={signOut}
+                onClick={handleSignOutClick}
                 className="w-full flex items-center px-4 py-3 text-base transition-colors duration-200 text-neutral-300 hover:bg-red-500/20 hover:text-white rounded-md"
             >
                 <SignOutIcon className="h-5 w-5 mr-4"/>
@@ -66,6 +77,17 @@ const NavDrawer: React.FC = () => {
             </button>
         </div>
       </aside>
+
+      <ConfirmModal
+        isOpen={isSignOutModalOpen}
+        onClose={() => setIsSignOutModalOpen(false)}
+        onConfirm={confirmSignOut}
+        title="Sign Out"
+        confirmText="Sign Out"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+      >
+        <p>Are you sure you want to sign out?</p>
+      </ConfirmModal>
     </>
   );
 };
