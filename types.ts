@@ -101,7 +101,6 @@ export interface AppSettings {
   storeName?: string;
   storeAddress?: string;
   receiptFooter?: string;
-  instagramHandle?: string;
 }
 
 /**
