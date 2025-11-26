@@ -1,39 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- ===================== -->
     <!-- Permissions Section   -->
     <!-- ===================== -->
 
-    <!-- Internet (already present) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- ===== Storage Permissions ===== -->
-    <!-- Basic external storage read/write -->
+    <!-- Storage -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
-    <!-- Android 11+ Scoped Storage override (optional, only if you REALLY need full access) -->
-    <!-- Requires user to manually enable in system settings -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage" />
-
-    <!-- ===== Classic Bluetooth Permissions ===== -->
+    <!-- Bluetooth legacy -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
 
-    <!-- ===== Android 12+ (API 31+) Bluetooth permissions ===== -->
+    <!-- Bluetooth Android 12+ -->
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
 
-    <!-- For Bluetooth scanning (Android requires location) -->
+    <!-- Location (needed for scanning on older Androids) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- Optional (if you want high precision scanning) -->
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
-
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="false" />
 
     <!-- ===================== -->
     <!-- Application Section   -->
