@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
@@ -37,6 +38,7 @@ const ITEMS_CACHE_KEY = 'pos_items_cache';
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
 const GRIDS_CACHE_KEY = 'pos_grids_cache'; // New Cache Key
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
+const ACTIVE_GRID_KEY = 'pos_active_grid_id';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -102,6 +104,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // --- Global Ticket State ---
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
+  
+  // Sales Screen Persistence
+  const [activeGridId, setActiveGridIdState] = useState<string>(() => {
+      return localStorage.getItem(ACTIVE_GRID_KEY) || 'All';
+  });
+
+  const setActiveGridId = useCallback((id: string) => {
+      setActiveGridIdState(id);
+      localStorage.setItem(ACTIVE_GRID_KEY, id);
+  }, []);
   
   const [lastReceiptDoc, setLastReceiptDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
@@ -210,6 +222,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             localStorage.removeItem(ITEMS_CACHE_KEY);
             localStorage.removeItem(SETTINGS_CACHE_KEY);
             localStorage.removeItem(GRIDS_CACHE_KEY);
+            localStorage.removeItem(ACTIVE_GRID_KEY);
         }
     }, (error) => {
         console.error("Firebase Auth error:", error);
@@ -426,9 +439,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteCustomGrid = useCallback(async (id: string) => {
       setCustomGridsState(prev => prev.filter(g => g.id !== id));
+      if (activeGridId === id) setActiveGridId('All');
       try { await deleteDoc(doc(db, 'users', getUid(), 'custom_grids', id)); } 
       catch (e) { console.error(e); alert("Failed to delete custom grid."); }
-  }, [getUid]);
+  }, [getUid, activeGridId, setActiveGridId]);
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
       const newGridsWithOrder = newGrids.map((g, i) => ({ ...g, order: i }));
@@ -603,6 +617,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       savedTickets, saveTicket, removeTicket,
       customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
       tables, addTable, updateTable, setTables, removeTable,
+      activeGridId, setActiveGridId,
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
       exportData, restoreData, exportItemsCsv, replaceItems
   };

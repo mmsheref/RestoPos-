@@ -1,3 +1,4 @@
+
 import { User } from 'firebase/auth';
 
 /**
@@ -191,6 +192,10 @@ export interface AppContextType {
   updateTable: (table: Table) => void;
   setTables: (tables: Table[]) => void;
   removeTable: (tableId: string) => void;
+
+  // Sales Screen State
+  activeGridId: string;
+  setActiveGridId: (id: string) => void;
 
   // --- START: Global Ticket State ---
   // The active order, managed globally to persist across UI changes like theme switching.
