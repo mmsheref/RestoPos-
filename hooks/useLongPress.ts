@@ -1,51 +1,87 @@
-import React, { useState, useRef, useCallback } from 'react';
+// FIX: Import React to use React.TouchEvent and React.MouseEvent types.
+import React, { useRef, useCallback, useEffect } from 'react';
 
-// --- Helper Hook for Long Press ---
+// A module-level variable to track the last touch event time.
+// This is a reliable way to differentiate between genuine mouse events and touch-emulated mouse events.
+let lastTouchEndTime = 0;
+
+/**
+ * A hook that detects long presses and handles clicks, while robustly preventing
+ * the "double-fire" or "ghost click" issue on touch devices where both touch
+ * and mouse events are dispatched for a single tap.
+ */
 export const useLongPress = (
   onLongPress: (event: React.TouchEvent | React.MouseEvent) => void,
   onClick: () => void,
-  { shouldPreventDefault = true, delay = 300 } = {}
+  { delay = 300 } = {}
 ) => {
-  const [longPressTriggered, setLongPressTriggered] = useState(false);
   const timeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const target = useRef<EventTarget | null>(null);
+  const longPressTriggered = useRef(false);
+
+  // Ensure any active timeout is cleared when the component unmounts.
+  useEffect(() => {
+    return () => {
+      timeout.current && clearTimeout(timeout.current);
+    };
+  }, []);
 
   const start = useCallback(
     (event: React.TouchEvent | React.MouseEvent) => {
-      if (shouldPreventDefault && event.target) {
-        event.target.addEventListener('touchend', preventDefault, { passive: false });
-        target.current = event.target;
+      // Ignore emulated mouse events that follow a touch event.
+      if (Date.now() - lastTouchEndTime < 500 && 'buttons' in event) {
+        return;
       }
+      
+      longPressTriggered.current = false;
+      
+      // Persist the event object for use in the async timeout.
+      if ('persist' in event && typeof event.persist === 'function') {
+        event.persist();
+      }
+      
       timeout.current = setTimeout(() => {
         onLongPress(event);
-        setLongPressTriggered(true);
+        longPressTriggered.current = true;
       }, delay);
     },
-    [onLongPress, delay, shouldPreventDefault]
+    [onLongPress, delay]
   );
 
   const clear = useCallback(
     (event: React.TouchEvent | React.MouseEvent, shouldTriggerClick = true) => {
+      // Ignore emulated mouse events.
+      if (Date.now() - lastTouchEndTime < 500 && 'buttons' in event) {
+        // We also prevent default to stop any other unwanted behaviors like link navigation.
+        event.preventDefault();
+        return;
+      }
+      
+      // If this was a touch event, update the timestamp.
+      if (event.type === 'touchend') {
+        lastTouchEndTime = Date.now();
+      }
+
       timeout.current && clearTimeout(timeout.current);
-      shouldTriggerClick && !longPressTriggered && onClick();
-      setLongPressTriggered(false);
-      if (shouldPreventDefault && target.current) {
-        target.current.removeEventListener('touchend', preventDefault);
+      
+      // Trigger the onClick handler only if it was a short press (not a long press).
+      if (shouldTriggerClick && longPressTriggered.current === false) {
+        onClick();
       }
     },
-    [shouldPreventDefault, onClick, longPressTriggered]
+    [onClick]
   );
-  
-  const preventDefault = (event: Event) => {
-    if (!longPressTriggered) return;
-    event.preventDefault();
-  }
 
   return {
-    onMouseDown: (e: React.MouseEvent) => start(e),
-    onTouchStart: (e: React.TouchEvent) => start(e),
+    onMouseDown: start,
+    onTouchStart: start,
     onMouseUp: (e: React.MouseEvent) => clear(e),
-    onMouseLeave: (e: React.MouseEvent) => clear(e, false),
+    onMouseLeave: (event: React.MouseEvent) => {
+        // Also prevent clearing the timeout on a ghost mouseleave event.
+        if (Date.now() - lastTouchEndTime < 500) {
+            return;
+        }
+        timeout.current && clearTimeout(timeout.current);
+    },
     onTouchEnd: (e: React.TouchEvent) => clear(e),
   };
 };
