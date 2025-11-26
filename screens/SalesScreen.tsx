@@ -34,7 +34,9 @@ const SalesScreen: React.FC = () => {
       savedTickets, saveTicket, removeTicket,
       // Global Ticket State
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, 
-      updateOrderItemQuantity, clearOrder, loadOrder
+      updateOrderItemQuantity, clearOrder, loadOrder,
+      // Global View State
+      activeGridId, setActiveGridId
   } = useAppContext();
   const navigate = useNavigate();
 
@@ -42,8 +44,6 @@ const SalesScreen: React.FC = () => {
   const [salesView, setSalesView] = useState<SalesView>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  
-  const [activeGridId, setActiveGridId] = useState<'All' | string>('All');
   
   // Ticket management state
   const [editingTicket, setEditingTicket] = useState<SavedTicket | null>(null);
@@ -191,7 +191,7 @@ const SalesScreen: React.FC = () => {
       if (activeGridId !== 'All' && !newGrids.some(g => g.id === activeGridId)) {
           setActiveGridId('All');
       }
-  }, [activeGridId, setCustomGrids]);
+  }, [activeGridId, setCustomGrids, setActiveGridId]);
 
   const handleOpenSelectItemModal = useCallback((slotIndex: number) => {
       if (activeGridId === 'All') return;
