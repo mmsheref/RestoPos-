@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useDebounce } from '../hooks/useDebounce';
@@ -38,6 +38,8 @@ const SalesScreen: React.FC = () => {
       activeGridId, setActiveGridId
   } = useAppContext();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isActive = location.pathname === '/sales';
 
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
@@ -79,12 +81,15 @@ const SalesScreen: React.FC = () => {
   
   const [isTicketVisible, setIsTicketVisible] = useState(false);
   
+  // Update header title only when active
   useEffect(() => {
+    if (!isActive) return;
+    
     if (salesView === 'payment') setHeaderTitle('Checkout');
     else if (editingTicket) setHeaderTitle(`Editing: ${editingTicket.name}`);
     else if (currentOrder.length > 0) setHeaderTitle('New Order');
     else setHeaderTitle('Sales');
-  }, [editingTicket, currentOrder.length, setHeaderTitle, salesView]);
+  }, [editingTicket, currentOrder.length, setHeaderTitle, salesView, isActive]);
 
   // Reset pagination and scroll position when category or search changes
   useEffect(() => {
@@ -154,6 +159,8 @@ const SalesScreen: React.FC = () => {
 
   // Infinite Scroll Observer
   useEffect(() => {
+    // Only activate infinite scroll if we are in a scrollable list view (All Items or Search)
+    // AND we have more items to show
     if ((activeGridId !== 'All' && !debouncedSearchQuery.trim()) || paginatedItems.length >= itemsForDisplay.length) {
         return; 
     }
@@ -271,7 +278,7 @@ const SalesScreen: React.FC = () => {
   return (
     <div className="flex flex-col md:flex-row h-full bg-background font-sans relative">
       <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
-        <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} />
+        <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
         <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
             {items.length === 0 && !debouncedSearchQuery.trim() ? (
