@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
@@ -165,7 +166,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
   }, [editingTicket, currentOrder.length]);
 
   return (
-    <section className={`${className} bg-surface border-l border-border`}>
+    <section className={`${className} bg-surface border-l border-border h-full`}>
       <header className="bg-surface shadow-sm w-full z-30 flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border">
         <div className="flex items-center gap-2">
             {onClose && (
@@ -194,9 +195,11 @@ const Ticket: React.FC<TicketProps> = (props) => {
             )}
           </div>
       </header>
-      <div ref={listContainerRef} className="flex-1 overflow-y-auto p-4">
+      
+      {/* Scrollable Area: Items + Sticky Totals */}
+      <div ref={listContainerRef} className="flex-1 overflow-y-auto flex flex-col relative">
           {isClearConfirmVisible ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <TrashIcon className="h-12 w-12 text-red-400 mb-4" />
               <h3 className="text-lg font-bold text-text-primary">Clear Current Order?</h3>
               <p className="text-sm text-text-secondary mt-1 mb-6">This action cannot be undone.</p>
@@ -215,73 +218,90 @@ const Ticket: React.FC<TicketProps> = (props) => {
               <p className="mt-4 font-medium">Your order is empty</p>
             </div>
           ) : (
-            <ul className="space-y-2 overflow-x-hidden">
-              {currentOrder.map(item => (
-                <li key={item.lineItemId} className="relative group bg-surface flex items-center text-sm p-2 rounded-lg shadow-sm border border-border select-none">
-                  <div className="flex-grow">
-                      <p className="font-semibold text-text-primary">{item.name}</p>
-                      <p className="text-text-secondary">{item.price.toFixed(2)}</p>
-                  </div>
-                  <div className="flex items-center justify-center gap-2 mx-4">
-                      <button 
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                            e.currentTarget.blur();
-                            removeFromOrder(item.lineItemId);
-                        }} 
-                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation" 
-                        aria-label={`Remove one ${item.name}`}
-                      >
-                        -
-                      </button>
-                      
-                      {editingQuantityItemId === item.lineItemId ? (
-                          <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary" autoFocus onFocus={(e) => e.target.select()} />
-                      ) : (
-                          <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary cursor-pointer rounded-md active:bg-surface-muted p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
-                      )}
-                      
-                      <button 
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                            e.currentTarget.blur();
-                            updateOrderItemQuantity(item.lineItemId, item.quantity + 1);
-                        }} 
-                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation" 
-                        aria-label={`Add one ${item.name}`}
-                      >
-                        +
-                      </button>
-                  </div>
-                  <p className="w-16 font-semibold text-text-primary text-right">{(item.price * item.quantity).toFixed(2)}</p>
-                  <button 
-                    onClick={(e) => {
-                        e.currentTarget.blur();
-                        deleteLineItem(item.lineItemId);
-                    }} 
-                    className="ml-2 p-2 text-text-muted active:text-red-500 rounded-full transition-colors focus:outline-none touch-manipulation"
-                    aria-label={`Delete ${item.name}`}
-                  >
-                      <TrashIcon className="h-5 w-5" />
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+                {/* List Items */}
+                <div className="p-4 pb-2">
+                    <ul className="space-y-2 overflow-x-hidden">
+                    {currentOrder.map(item => (
+                        <li key={item.lineItemId} className="relative group bg-surface flex items-center text-sm p-2 rounded-lg shadow-sm border border-border select-none">
+                        <div className="flex-grow">
+                            <p className="font-semibold text-text-primary">{item.name}</p>
+                            <p className="text-text-secondary">{item.price.toFixed(2)}</p>
+                        </div>
+                        <div className="flex items-center justify-center gap-2 mx-4">
+                            <button 
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.currentTarget.blur();
+                                    removeFromOrder(item.lineItemId);
+                                }} 
+                                className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation" 
+                                aria-label={`Remove one ${item.name}`}
+                            >
+                                -
+                            </button>
+                            
+                            {editingQuantityItemId === item.lineItemId ? (
+                                <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary" autoFocus onFocus={(e) => e.target.select()} />
+                            ) : (
+                                <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary cursor-pointer rounded-md active:bg-surface-muted p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
+                            )}
+                            
+                            <button 
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.currentTarget.blur();
+                                    updateOrderItemQuantity(item.lineItemId, item.quantity + 1);
+                                }} 
+                                className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation" 
+                                aria-label={`Add one ${item.name}`}
+                            >
+                                +
+                            </button>
+                        </div>
+                        <p className="w-16 font-semibold text-text-primary text-right">{(item.price * item.quantity).toFixed(2)}</p>
+                        <button 
+                            onClick={(e) => {
+                                e.currentTarget.blur();
+                                deleteLineItem(item.lineItemId);
+                            }} 
+                            className="ml-2 p-2 text-text-muted active:text-red-500 rounded-full transition-colors focus:outline-none touch-manipulation"
+                            aria-label={`Delete ${item.name}`}
+                        >
+                            <TrashIcon className="h-5 w-5" />
+                        </button>
+                        </li>
+                    ))}
+                    </ul>
+                </div>
+
+                {/* Sticky Totals Section */}
+                <div className="sticky bottom-0 bg-surface/95 backdrop-blur-sm border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 mt-auto">
+                    <div className="space-y-2 text-sm">
+                        {settings.taxEnabled && (
+                            <>
+                                <div className="flex justify-between text-text-secondary"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
+                                <div className="flex justify-between text-text-secondary"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>
+                            </>
+                        )}
+                        <div className={`flex justify-between font-bold text-xl text-text-primary ${settings.taxEnabled ? 'pt-2 border-t mt-2 border-border' : ''}`}>
+                            <span>Total</span><span>{total.toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+            </>
           )}
-        </div>
-        <div className="p-4 border-t border-border bg-surface mt-auto">
-          <div className="space-y-2 mb-4 text-sm">
-            <div className="flex justify-between text-text-secondary"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
-            {settings.taxEnabled && (<div className="flex justify-between text-text-secondary"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>)}
-            <div className="flex justify-between font-bold text-xl text-text-primary pt-2 border-t mt-2 border-border"><span>Total</span><span>{total.toFixed(2)}</span></div>
-          </div>
+      </div>
+
+      {/* Action Buttons Footer - Always Fixed */}
+      <div className="p-4 border-t border-border bg-surface z-20">
           <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
             <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 active:scale-[0.98] disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center">
               Charge
             </button>
           </div>
-        </div>
+      </div>
     </section>
   );
 };
