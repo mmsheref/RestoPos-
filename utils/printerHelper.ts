@@ -1,3 +1,4 @@
+
 /**
  * PRINTER HELPER
  * 
@@ -33,6 +34,16 @@ const COMMANDS = {
   BOLD_ON: ESC + 'E' + '\x01',
   BOLD_OFF: ESC + 'E' + '\x00',
   CUT: GS + 'V' + '\x41' + '\x00',
+  
+  // Font Sizing (ESC ! n)
+  // n = 0 (Normal)
+  // n = 16 (Double Height)
+  // n = 32 (Double Width)
+  // n = 48 (Double Width + Double Height)
+  TXT_NORMAL: ESC + '!' + '\x00',
+  TXT_2HEIGHT: ESC + '!' + '\x10',
+  TXT_2WIDTH: ESC + '!' + '\x20',
+  TXT_4SQUARE: ESC + '!' + '\x30', 
 };
 
 /**
@@ -56,7 +67,6 @@ const connectToPrinter = (address: string): Promise<void> => {
 
 /**
  * Disconnects from the currently connected device.
- * This is crucial to run after every print job to avoid stale connections.
  */
 const disconnectFromPrinter = (): Promise<void> => {
     return new Promise((resolve) => {
@@ -67,7 +77,6 @@ const disconnectFromPrinter = (): Promise<void> => {
                     resolve();
                 },
                 () => {
-                    // Failure to disconnect is usually not critical, as it might already be disconnected.
                     console.warn("Failed to disconnect, or was not connected.");
                     resolve(); 
                 }
@@ -78,26 +87,38 @@ const disconnectFromPrinter = (): Promise<void> => {
     });
 };
 
-const createLine = (left: string, right: string, width: number): string => {
-    const space = width - left.length - right.length;
-    return left + ' '.repeat(Math.max(0, space)) + right + '\n';
+/**
+ * Creates a smart row with Left and Right alignment.
+ * Automatically truncates the Left text if it overlaps with the Right text.
+ * Puts at least 1 space between them.
+ */
+const createRow = (left: string, right: string, width: number): string => {
+    const minSpace = 1;
+    const maxLeftLen = width - right.length - minSpace;
+    
+    let cleanLeft = left;
+    if (cleanLeft.length > maxLeftLen) {
+        cleanLeft = cleanLeft.substring(0, maxLeftLen - 1) + '.';
+    }
+    
+    const spaceCount = width - cleanLeft.length - right.length;
+    return cleanLeft + ' '.repeat(Math.max(0, spaceCount)) + right + '\n';
 };
 
 const createDivider = (width: number): string => '-'.repeat(width) + '\n';
 
+const formatCurrency = (amount: number) => amount.toFixed(2);
+
 /**
- * A helper function to consolidate an array of order items.
- * It combines multiple lines of the same item into a single line with a summed quantity.
+ * Consolidates multiple lines of the same item into a single line with summed quantity.
  */
 const consolidateItems = (items: OrderItem[]): OrderItem[] => {
-    // Using a Map to preserve insertion order of unique items
     const consolidated = new Map<string, OrderItem>();
     items.forEach(item => {
         const existing = consolidated.get(item.id);
         if (existing) {
             consolidated.set(item.id, { ...existing, quantity: existing.quantity + item.quantity });
         } else {
-            // Add a copy to avoid mutating the original item from the Map
             consolidated.set(item.id, { ...item }); 
         }
     });
@@ -105,7 +126,6 @@ const consolidateItems = (items: OrderItem[]): OrderItem[] => {
 };
 
 
-// --- NEW Bill/Receipt Interfaces ---
 interface PrintBillArgs {
   items: OrderItem[];
   total: number;
@@ -118,16 +138,14 @@ interface PrintBillArgs {
 
 export interface PrintReceiptArgs extends PrintBillArgs {
     receiptId: string;
-    // FIX: Changed type from specific literals to string to support custom payment methods.
     paymentMethod: string;
 }
 
-// Refactors the core printing logic to be reusable
 const sendToPrinter = async (data: string, printer: Printer): Promise<{ success: boolean; message: string }> => {
     // Web Fallback
     if (!window.bluetoothSerial) {
         console.log("--- SIMULATED PRINT ---");
-        console.log(data.replace(/[\x1b\x1d]/g, '')); // Log cleaned data for readability
+        console.log(data.replace(/[\x1b\x1d]/g, '')); 
         alert(`Simulated Print to ${printer.name}`);
         return { success: true, message: "Simulated print successful" };
     }
@@ -146,8 +164,6 @@ const sendToPrinter = async (data: string, printer: Printer): Promise<{ success:
         await new Promise<void>((resolve, reject) => {
             window.bluetoothSerial.write(data, 
                 () => resolve(), 
-                // FIX: Do not JSON.stringify the raw error object from the plugin, as it may contain circular references.
-                // Instead, safely extract a message for propagation.
                 (err: any) => {
                     console.error("Bluetooth write failed:", err);
                     const message = typeof err === 'string' ? err : (err?.message || 'Unknown write error');
@@ -165,118 +181,132 @@ const sendToPrinter = async (data: string, printer: Printer): Promise<{ success:
 }
 
 
-/**
- * Sends a small test print to verify configuration and connectivity.
- */
 export const testPrint = async (printer: Printer): Promise<{ success: boolean; message: string }> => {
-    const paperWidthChars = printer.paperWidth === '80mm' ? 48 : 32;
-    const divider = createDivider(paperWidthChars);
-    
     let data = COMMANDS.INIT;
     data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "TEST PRINT\n" + COMMANDS.BOLD_OFF;
-    data += divider;
-    data += COMMANDS.LEFT;
-    data += `Device: ${printer.name}\n`;
-    if(printer.address) data += `Addr: ${printer.address}\n`;
-    data += "Status: Connected\n";
-    data += divider;
-    data += COMMANDS.CENTER + "It Works!\n";
-    data += "\n\n\n" + COMMANDS.CUT;
-
+    data += "If you can read this,\nprinter is configured.\n";
+    data += "\n\n" + COMMANDS.CUT;
     return sendToPrinter(data, printer);
 };
 
-// New function for pre-payment bills
 export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean; message: string }> => {
-    const { items, total, subtotal, tax, ticketName, settings, printer } = args;
+    const { items, total, settings, printer, ticketName } = args;
 
     if (!printer) {
-      alert("No printer configured. Please add a printer in Settings.");
       return { success: false, message: "No printer configured." };
     }
     
-    const paperWidthChars = printer.paperWidth === '80mm' ? 48 : 32;
-    const divider = createDivider(paperWidthChars);
+    // Config
+    const width = printer.paperWidth === '80mm' ? 48 : 32;
     const consolidatedItems = consolidateItems(items);
 
-    let data = COMMANDS.INIT;
-    if(settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
-    if(settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress.replace(/[\r\n]+/g, ' ') + '\n';
-    data += '\n';
-    data += COMMANDS.LEFT + `Cashier: Admin\nPOS: 1\n`;
-    if(ticketName) data += `Ticket: ${ticketName}\n`;
-    data += divider;
-
-    consolidatedItems.forEach(item => {
-        const lineTotal = (item.price * item.quantity).toFixed(2);
-        const namePart = item.name.length > (paperWidthChars - 10) ? item.name.substring(0, paperWidthChars - 10) : item.name;
-        data += createLine(namePart, `${lineTotal}`, paperWidthChars);
-        data += `  ${item.quantity} x ${item.price.toFixed(2)}\n`;
-    });
-    data += divider;
-
-    data += createLine('Subtotal', `${subtotal.toFixed(2)}`, paperWidthChars);
-    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `${tax.toFixed(2)}`, paperWidthChars);
-    data += COMMANDS.BOLD_ON + createLine('TOTAL', `${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
+    // 1. Init & Header
+    let data = COMMANDS.INIT + COMMANDS.CENTER;
+    if(settings.storeName) {
+        // Sanitize store name (remove newlines)
+        const safeName = settings.storeName.replace(/[\r\n]+/g, ' ').trim().toUpperCase();
+        data += COMMANDS.BOLD_ON + safeName + '\n' + COMMANDS.BOLD_OFF;
+    }
+    data += "ESTIMATE / BILL\n";
     
-    data += '\n' + COMMANDS.CENTER + '--- THIS IS NOT A RECEIPT ---\n';
-    data += "\n\n\n" + COMMANDS.CUT;
+    if (ticketName) {
+        data += `Ticket: ${ticketName}\n`;
+    }
+    
+    data += COMMANDS.LEFT;
+    data += createDivider(width);
+
+    // 2. Items (Compact Format)
+    consolidatedItems.forEach(item => {
+        const lineTotal = formatCurrency(item.price * item.quantity);
+        // Format: "2 Burger ............ 20.00"
+        const leftText = `${item.quantity} ${item.name}`;
+        data += createRow(leftText, lineTotal, width);
+    });
+    data += createDivider(width);
+
+    // 3. Totals
+    // For Bill, just show Total huge
+    data += COMMANDS.CENTER + COMMANDS.BOLD_ON + COMMANDS.TXT_4SQUARE;
+    data += "TOTAL: " + formatCurrency(total);
+    data += COMMANDS.TXT_NORMAL + COMMANDS.BOLD_OFF + "\n";
+    
+    data += '\n\n' + COMMANDS.CUT;
     
     return sendToPrinter(data, printer);
 };
 
-// Re-implement printReceipt with full customization
 export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: boolean; message: string }> => {
     const { items, total, subtotal, tax, receiptId, paymentMethod, settings, printer } = args;
     
     if (!printer) {
-      alert("No printer configured. Please add a printer in Settings.");
       return { success: false, message: "No printer configured." };
     }
     
-    const paperWidthChars = printer.paperWidth === '80mm' ? 48 : 32;
-    const divider = createDivider(paperWidthChars);
-    const now = new Date();
-    const formattedDate = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    const width = printer.paperWidth === '80mm' ? 48 : 32;
     const consolidatedItems = consolidateItems(items);
+    const now = new Date();
+    const dateStr = now.toLocaleDateString();
+    const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
-    // 1. Header
-    let data = COMMANDS.INIT;
-    if (settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
-    if (settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress.replace(/[\r\n]+/g, ' ') + '\n';
-    data += '\n';
+    // 1. Init & Header
+    let data = COMMANDS.INIT + COMMANDS.CENTER;
+    
+    if (settings.storeName) {
+        const safeName = settings.storeName.replace(/[\r\n]+/g, ' ').trim().toUpperCase();
+        // Double Width Header
+        data += COMMANDS.BOLD_ON + COMMANDS.TXT_2WIDTH + safeName + COMMANDS.TXT_NORMAL + '\n' + COMMANDS.BOLD_OFF;
+    }
+    
+    if (settings.storeAddress) {
+        const safeAddr = settings.storeAddress.replace(/[\r\n]+/g, ' ').trim();
+        data += safeAddr + '\n';
+    }
+    data += '\n'; // Spacer
     
     // 2. Meta
-    data += COMMANDS.LEFT + `Cashier: Admin\nPOS: 1\n`;
-    data += divider;
+    data += COMMANDS.LEFT;
+    // Compact Meta line: "12/01/2023 10:30     #R8923"
+    const metaLeft = `${dateStr} ${timeStr}`;
+    const metaRight = `#${receiptId.slice(-4)}`;
+    data += createRow(metaLeft, metaRight, width);
+    data += createDivider(width);
     
     // 3. Items
     consolidatedItems.forEach(item => {
-        const lineTotal = (item.price * item.quantity).toFixed(2);
-        const namePart = item.name.length > (paperWidthChars - 12) ? item.name.substring(0, paperWidthChars - 12) : item.name;
-        data += createLine(namePart, `${lineTotal}`, paperWidthChars);
-        data += `  ${item.quantity} x ${item.price.toFixed(2)}\n`;
+        const lineTotal = formatCurrency(item.price * item.quantity);
+        // Format: "2 Burger ............ 20.00"
+        const leftText = `${item.quantity} ${item.name}`;
+        data += createRow(leftText, lineTotal, width);
     });
-    data += divider;
+    data += createDivider(width);
     
     // 4. Totals
-    data += createLine('Subtotal', `${subtotal.toFixed(2)}`, paperWidthChars);
-    if (settings.taxEnabled) data += createLine(`GST (${settings.taxRate}%)`, `${tax.toFixed(2)}`, paperWidthChars);
-    data += COMMANDS.BOLD_ON + createLine('TOTAL', `${total.toFixed(2)}`, paperWidthChars) + COMMANDS.BOLD_OFF;
+    if (settings.taxEnabled) {
+         data += createRow('Subtotal', formatCurrency(subtotal), width);
+         data += createRow(`Tax (${settings.taxRate}%)`, formatCurrency(tax), width);
+         data += createDivider(width);
+    }
+    
+    // TOTAL (Double Size)
+    // Centered for impact
+    data += COMMANDS.CENTER + COMMANDS.BOLD_ON + COMMANDS.TXT_4SQUARE;
+    data += "TOTAL: " + formatCurrency(total) + "\n";
+    data += COMMANDS.TXT_NORMAL + COMMANDS.BOLD_OFF + COMMANDS.LEFT; // Reset
+    
     data += '\n';
-    
-    // 5. Payment
-    // FIX: Use the actual paymentMethod string instead of hardcoded logic.
-    data += createLine(paymentMethod, `${total.toFixed(2)}`, paperWidthChars);
-    
-    // 6. Footer
-    if(settings.receiptFooter) data += '\n' + COMMANDS.CENTER + settings.receiptFooter + '\n';
-    data += COMMANDS.CENTER + 'Thank you for your visit!\n';
-    
-    data += '\n';
-    data += createLine(formattedDate, receiptId, paperWidthChars);
+    data += createRow('Paid via:', paymentMethod, width);
 
-    data += "\n\n\n" + COMMANDS.CUT;
+    // 5. Footer
+    data += createDivider(width);
+    data += COMMANDS.CENTER;
+    if(settings.receiptFooter) {
+        const safeFooter = settings.receiptFooter.replace(/[\r\n]+/g, ' ').trim();
+        data += safeFooter + '\n';
+    }
+    data += "Thank you for visiting!\n";
+    
+    data += "\n\n" + COMMANDS.CUT;
     
     return sendToPrinter(data, printer);
 };
