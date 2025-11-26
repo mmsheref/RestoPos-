@@ -37,6 +37,7 @@ const ItemGrid: React.FC<ItemGridProps> = ({
 
             return (
               <button
+                type="button"
                 key={`placeholder-${index}`}
                 onClick={() => {
                     // Only allow assignment if editing or if it's a fixed grid (user intent is clear)
