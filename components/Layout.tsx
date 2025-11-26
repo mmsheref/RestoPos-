@@ -36,7 +36,7 @@ const Layout: React.FC = () => {
     }
   }, [pathname, setHeaderTitle]);
 
-  const validPaths = ['/sales', '/receipts', 'items', '/settings', '/advanced'];
+  const validPaths = ['/sales', '/receipts', '/items', '/settings', '/advanced'];
   const isRootOrInvalid = !validPaths.some(p => pathname.startsWith(p));
   if (isRootOrInvalid) {
       return <Navigate to="/sales" replace />;
