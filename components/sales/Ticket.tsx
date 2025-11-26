@@ -132,7 +132,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       return (
         <button 
           onClick={handlePrimarySaveAction}
-          className="w-full bg-primary text-primary-content font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-primary-hover"
+          className="w-full bg-primary text-primary-content font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-primary-hover active:scale-[0.98]"
         >
           {editingTicket ? 'Update' : 'Save'}
         </button>
@@ -142,7 +142,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       return (
         <button 
           onClick={onOpenTickets}
-          className="w-full bg-amber-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-amber-600"
+          className="w-full bg-amber-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-amber-600 active:scale-[0.98]"
         >
           Open Tickets ({savedTickets.length})
         </button>
@@ -217,7 +217,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
           ) : (
             <ul className="space-y-2 overflow-x-hidden">
               {currentOrder.map(item => (
-                <li key={item.lineItemId} className="relative group bg-surface flex items-center text-sm p-2 rounded-lg shadow-sm border border-border">
+                <li key={item.lineItemId} className="relative group bg-surface flex items-center text-sm p-2 rounded-lg shadow-sm border border-border select-none">
                   <div className="flex-grow">
                       <p className="font-semibold text-text-primary">{item.name}</p>
                       <p className="text-text-secondary">{item.price.toFixed(2)}</p>
@@ -225,12 +225,11 @@ const Ticket: React.FC<TicketProps> = (props) => {
                   <div className="flex items-center justify-center gap-2 mx-4">
                       <button 
                         onPointerDown={(e) => e.stopPropagation()}
-                        onMouseUp={(e) => e.currentTarget.blur()}
                         onClick={(e) => {
                             e.currentTarget.blur();
                             removeFromOrder(item.lineItemId);
                         }} 
-                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-red-200 dark:hover:bg-red-500/50 hover:text-red-700 transition-colors focus:outline-none focus:ring-0" 
+                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation" 
                         aria-label={`Remove one ${item.name}`}
                       >
                         -
@@ -239,17 +238,16 @@ const Ticket: React.FC<TicketProps> = (props) => {
                       {editingQuantityItemId === item.lineItemId ? (
                           <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary" autoFocus onFocus={(e) => e.target.select()} />
                       ) : (
-                          <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary cursor-pointer rounded-md hover:bg-surface-muted p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
+                          <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary cursor-pointer rounded-md active:bg-surface-muted p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
                       )}
                       
                       <button 
                         onPointerDown={(e) => e.stopPropagation()}
-                        onMouseUp={(e) => e.currentTarget.blur()}
                         onClick={(e) => {
                             e.currentTarget.blur();
                             updateOrderItemQuantity(item.lineItemId, item.quantity + 1);
                         }} 
-                        className="h-7 w-7 bg-surface-muted text-lg rounded-full text-text-secondary hover:bg-green-200 dark:hover:bg-green-500/50 hover:text-green-700 transition-colors focus:outline-none focus:ring-0" 
+                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation" 
                         aria-label={`Add one ${item.name}`}
                       >
                         +
@@ -261,7 +259,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
                         e.currentTarget.blur();
                         deleteLineItem(item.lineItemId);
                     }} 
-                    className="ml-2 p-2 text-text-muted hover:text-red-500 rounded-full transition-colors focus:outline-none"
+                    className="ml-2 p-2 text-text-muted active:text-red-500 rounded-full transition-colors focus:outline-none touch-manipulation"
                     aria-label={`Delete ${item.name}`}
                   >
                       <TrashIcon className="h-5 w-5" />
@@ -279,7 +277,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
           </div>
           <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
-            <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center">
+            <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 active:scale-[0.98] disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center">
               Charge
             </button>
           </div>
