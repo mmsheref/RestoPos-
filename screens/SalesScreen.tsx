@@ -18,7 +18,6 @@ import CategoryTabs from '../components/sales/CategoryTabs';
 import Ticket from '../components/sales/Ticket';
 import ChargeScreen from '../components/sales/ChargeScreen';
 import { ReceiptIcon, ItemsIcon } from '../constants';
-import ItemGridContextMenu from '../components/sales/ItemGridContextMenu';
 
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
@@ -50,6 +49,9 @@ const SalesScreen: React.FC = () => {
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<string>('');
   
+  // Grid Editing State
+  const [isGridEditing, setIsGridEditing] = useState(false);
+  
   // Payment state
   const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string } | null>(null);
 
@@ -75,13 +77,6 @@ const SalesScreen: React.FC = () => {
       confirmButtonClass?: string;
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
-  const [contextMenuState, setContextMenuState] = useState<{
-      isOpen: boolean;
-      position: { top: number, left: number };
-      item: Item | null;
-      slotIndex: number;
-  }>({ isOpen: false, position: { top: 0, left: 0 }, item: null, slotIndex: -1 });
-
   const [isTicketVisible, setIsTicketVisible] = useState(false);
   
   useEffect(() => {
@@ -94,6 +89,7 @@ const SalesScreen: React.FC = () => {
   // Reset pagination and scroll position when category or search changes
   useEffect(() => {
     setDisplayLimit(40);
+    setIsGridEditing(false); // Always exit edit mode when switching views
     if (scrollContainerRef.current) {
         scrollContainerRef.current.scrollTop = 0;
     }
@@ -266,34 +262,11 @@ const SalesScreen: React.FC = () => {
       });
   };
 
-  const handleItemLongPress = useCallback((item: Item, slotIndex: number, event: React.MouseEvent | React.TouchEvent) => {
-    event.preventDefault();
-    const getCoords = (e: React.MouseEvent | React.TouchEvent) => {
-        if ('touches' in e) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-        return { x: e.clientX, y: e.clientY };
-    }
-    const { x, y } = getCoords(event);
-    setContextMenuState({ isOpen: true, position: { top: y, left: x }, item, slotIndex });
-  }, []);
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenuState(prev => ({ ...prev, isOpen: false }));
-  }, []);
-  
-  const handleContextRemove = useCallback(() => {
-    if (contextMenuState.item) handleRemoveItemFromGrid(contextMenuState.slotIndex);
-    closeContextMenu();
-  }, [contextMenuState, handleRemoveItemFromGrid, closeContextMenu]);
-  
-  const handleContextChange = useCallback(() => {
-    if (contextMenuState.item) handleOpenSelectItemModal(contextMenuState.slotIndex);
-    closeContextMenu();
-  }, [contextMenuState, handleOpenSelectItemModal, closeContextMenu]);
-
-
   if (salesView === 'payment') {
     return <ChargeScreen total={total} tax={tax} subtotal={subtotal} onBack={() => setSalesView('grid')} onProcessPayment={handleProcessPayment} onNewSale={handleNewSale} paymentResult={paymentResult} orderItems={currentOrder} />;
   }
+
+  const isViewingAll = activeGridId === 'All' || debouncedSearchQuery.trim().length > 0;
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-background font-sans relative">
@@ -320,11 +293,12 @@ const SalesScreen: React.FC = () => {
             ) : (
               <ItemGrid
                 itemsForDisplay={paginatedItems}
-                mode={activeGridId === 'All' || debouncedSearchQuery.trim() ? 'all' : 'grid'}
+                mode={isViewingAll ? 'all' : 'grid'}
                 onAddItemToOrder={addToOrder}
                 onAssignItem={handleOpenSelectItemModal}
-                onItemLongPress={handleItemLongPress}
-                loadMoreRef={(activeGridId === 'All' || debouncedSearchQuery.trim()) ? loadMoreRef : undefined}
+                onRemoveItem={handleRemoveItemFromGrid}
+                isEditing={!isViewingAll && isGridEditing}
+                loadMoreRef={isViewingAll ? loadMoreRef : undefined}
               />
             )}
           </div>
@@ -337,6 +311,8 @@ const SalesScreen: React.FC = () => {
             isSearchActive={debouncedSearchQuery.trim().length > 0}
             searchResultsCount={itemsForDisplay.length}
             searchQuery={searchQuery}
+            isEditing={isGridEditing}
+            onToggleEditMode={() => setIsGridEditing(prev => !prev)}
           />
         </div>
       </div>
@@ -388,13 +364,6 @@ const SalesScreen: React.FC = () => {
       <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleSelectItem} allItems={items} />
       <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />
       <AddGridModal isOpen={isAddGridModalOpen} onClose={() => setIsAddGridModalOpen(false)} onSave={handleSaveNewGrid} />
-      
-      <ItemGridContextMenu 
-        state={contextMenuState}
-        onClose={closeContextMenu}
-        onRemove={handleContextRemove}
-        onChange={handleContextChange}
-      />
       
       <ConfirmModal
         isOpen={confirmModalState.isOpen}

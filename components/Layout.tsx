@@ -11,7 +11,6 @@ import SalesScreen from '../screens/SalesScreen';
 import ReceiptsScreen from '../screens/ReceiptsScreen';
 import ItemsScreen from '../screens/ItemsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import AdvancedScreen from '../screens/AdvancedScreen';
 
 const Layout: React.FC = () => {
   const { 
@@ -36,7 +35,7 @@ const Layout: React.FC = () => {
     }
   }, [pathname, setHeaderTitle]);
 
-  const validPaths = ['/sales', '/receipts', '/items', '/settings', '/advanced'];
+  const validPaths = ['/sales', '/receipts', '/items', '/settings'];
   const isRootOrInvalid = !validPaths.some(p => pathname.startsWith(p));
   if (isRootOrInvalid) {
       return <Navigate to="/sales" replace />;
@@ -58,7 +57,6 @@ const Layout: React.FC = () => {
           <Route path="/receipts" element={<ReceiptsScreen />} />
           <Route path="/items" element={<ItemsScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
-          <Route path="/advanced" element={<AdvancedScreen />} />
           {/* Default route within the layout */}
           <Route path="*" element={<Navigate to="/sales" replace />} />
         </Routes>
