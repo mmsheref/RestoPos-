@@ -227,7 +227,7 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
 
     let data = COMMANDS.INIT;
     if(settings.storeName) data += COMMANDS.CENTER + COMMANDS.BOLD_ON + settings.storeName.toUpperCase() + '\n' + COMMANDS.BOLD_OFF;
-    if(settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress + '\n';
+    if(settings.storeAddress) data += COMMANDS.CENTER + settings.storeAddress.replace(/[\r\n]+/g, ' ') + '\n';
     data += '\n';
     data += COMMANDS.LEFT + `Cashier: Admin\nPOS: 1\n`;
     if(ticketName) data += `Ticket: ${ticketName}\n`;
