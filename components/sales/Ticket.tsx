@@ -276,7 +276,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
                 </div>
 
                 {/* Sticky Totals Section */}
-                <div className="sticky bottom-0 bg-surface/95 backdrop-blur-sm border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10 mt-auto">
+                <div className="sticky bottom-0 bg-surface/95 backdrop-blur-sm border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
                     <div className="space-y-2 text-sm">
                         {settings.taxEnabled && (
                             <>
