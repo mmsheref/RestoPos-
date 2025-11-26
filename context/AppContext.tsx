@@ -22,7 +22,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     storeName: 'My Restaurant',
     storeAddress: '123 Food Street, Flavor Town',
     receiptFooter: 'Follow us @myrestaurant',
-    instagramHandle: ''
 };
 
 interface FirebaseErrorState {

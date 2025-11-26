@@ -1,6 +1,5 @@
 
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Printer, PrinterInterfaceType, PrinterPaperWidth } from '../../types';
 import { CloseIcon } from '../../constants';
 import { requestAppPermissions } from '../../utils/permissions';
@@ -25,42 +24,75 @@ const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ isOpen, onClose, onSa
   const [printerAddress, setPrinterAddress] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [foundDevices, setFoundDevices] = useState<{ name: string, address: string }[]>([]);
+  const scanTimeoutRef = useRef<number | null>(null);
+
+  const handleStopScan = () => {
+    if (scanTimeoutRef.current) {
+      clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
+    // The cordova plugin used here doesn't have an explicit `stopScan` method.
+    // This function primarily manages UI state and the timeout.
+    setIsScanning(false);
+  };
+  
+  // Cleanup effect when modal closes
+  useEffect(() => {
+    return () => {
+      handleStopScan();
+    };
+  }, []);
+
 
   const handleStartScan = async () => {
-    if (printerInterface !== 'Bluetooth') return;
+    if (printerInterface !== 'Bluetooth' || isScanning) return;
     
     setIsScanning(true);
     setFoundDevices([]);
 
+    scanTimeoutRef.current = window.setTimeout(() => {
+        handleStopScan();
+        alert("Scan timed out. Ensure the printer is on and discoverable, then try again.");
+    }, 15000);
+
     try {
       const hasPermission = await requestAppPermissions();
       if (!hasPermission) {
-        setIsScanning(false);
+        handleStopScan();
         alert("Bluetooth permissions were denied. Please enable them in your device settings to scan for printers.");
         return;
       }
 
       if (window.bluetoothSerial) {
+          const onDiscoveryComplete = () => {
+            if (scanTimeoutRef.current) handleStopScan();
+          };
+
+          const onDiscoveryError = (err: any) => {
+              console.warn("Discovery failed", err);
+              if (scanTimeoutRef.current) handleStopScan();
+          };
+
           window.bluetoothSerial.list((pairedDevices: any[]) => {
               const mapped = pairedDevices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
               setFoundDevices(prev => [...prev, ...mapped.filter(m => !prev.find(d => d.address === m.address))]);
-
               window.bluetoothSerial.discoverUnpaired((devices: any[]) => {
                   const mappedUnpaired = devices.map(d => ({ name: d.name || 'Unknown Device', address: d.address }));
                   setFoundDevices(prev => [...prev, ...mappedUnpaired.filter(m => !prev.find(d => d.address === m.address))]);
-                  setIsScanning(false);
-              }, (err: any) => { console.warn("Discovery failed", err); setIsScanning(false); });
-          }, (err: any) => { console.error("List failed", err); setIsScanning(false); });
+                  onDiscoveryComplete();
+              }, onDiscoveryError);
+          }, onDiscoveryError);
+
       } else {
           console.warn("Bluetooth plugin not detected. Running in simulation mode.");
           setTimeout(() => {
             setFoundDevices([{ name: "Test Printer (Simulated)", address: "00:11:22:33:44:55" }]);
-            setIsScanning(false);
+            handleStopScan();
           }, 2000);
       }
     } catch (error) {
       console.error("Scan error:", error);
-      setIsScanning(false);
+      handleStopScan();
       alert("An error occurred during scanning.");
     }
   };
@@ -69,7 +101,7 @@ const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ isOpen, onClose, onSa
       setPrinterName(device.name);
       setPrinterAddress(device.address);
       setFoundDevices([]);
-      setIsScanning(false);
+      handleStopScan();
   };
 
   const handleSavePrinter = () => {
@@ -110,7 +142,7 @@ const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ isOpen, onClose, onSa
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-text-secondary mb-1">Interface</label>
-              <select value={printerInterface} onChange={(e) => { setPrinterInterface(e.target.value as PrinterInterfaceType); setFoundDevices([]); setIsScanning(false); }} className="w-full p-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-background text-text-primary">
+              <select value={printerInterface} onChange={(e) => { setPrinterInterface(e.target.value as PrinterInterfaceType); setFoundDevices([]); handleStopScan(); }} className="w-full p-2 border border-border rounded-md focus:ring-2 focus:ring-primary bg-background text-text-primary">
                 <option value="Bluetooth">Bluetooth</option>
                 <option value="Ethernet">Ethernet</option>
                 <option value="USB">USB</option>
@@ -128,10 +160,22 @@ const AddPrinterModal: React.FC<AddPrinterModalProps> = ({ isOpen, onClose, onSa
             <div className="bg-surface-muted rounded-lg p-3 border border-border">
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-bold text-text-secondary">Available Devices</label>
-                <button onClick={handleStartScan} disabled={isScanning} className="text-xs bg-primary/10 text-primary dark:bg-primary dark:text-primary-content px-3 py-1.5 rounded font-medium hover:bg-primary/20 dark:hover:bg-primary-hover transition-colors disabled:opacity-50 flex items-center gap-1">
-                  {isScanning ? (<><span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full"></span>Scanning...</>) : (<><svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>Scan</>)}
-                </button>
+                 {isScanning ? (
+                   <button onClick={handleStopScan} className="text-xs bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 px-3 py-1.5 rounded font-medium hover:bg-red-200 transition-colors flex items-center gap-1">
+                       <span className="h-3 w-3 block border-2 border-current rounded-sm"></span>Stop Scan
+                   </button>
+                ) : (
+                   <button onClick={handleStartScan} className="text-xs bg-primary/10 text-primary dark:bg-primary dark:text-primary-content px-3 py-1.5 rounded font-medium hover:bg-primary/20 dark:hover:bg-primary-hover transition-colors flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>Scan
+                   </button>
+                )}
               </div>
+              {isScanning && foundDevices.length === 0 && (
+                  <div className="text-xs text-text-muted italic mb-3 text-center flex items-center justify-center gap-2 py-2">
+                    <span className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-full"></span>
+                    Scanning for 15s...
+                  </div>
+              )}
               {foundDevices.length > 0 ? (
                 <ul className="mb-4 bg-surface rounded border border-border max-h-32 overflow-y-auto">
                   {foundDevices.map((device) => (
