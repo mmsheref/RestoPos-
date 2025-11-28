@@ -55,7 +55,7 @@ const SalesScreen: React.FC = () => {
   const [isGridEditing, setIsGridEditing] = useState(false);
   
   // Payment state
-  const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string, date: Date } | null>(null);
 
   // Pagination & Scroll State
   const [displayLimit, setDisplayLimit] = useState(40);
@@ -119,8 +119,9 @@ const SalesScreen: React.FC = () => {
   const handleProcessPayment = useCallback((method: string, tendered: number) => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
-    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, paymentMethod: method });
-    setPaymentResult({ method, change: tendered - total, receiptId });
+    const receiptDate = new Date();
+    addReceipt({ id: receiptId, date: receiptDate, items: currentOrder, total, paymentMethod: method });
+    setPaymentResult({ method, change: tendered - total, receiptId, date: receiptDate });
   }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
   
   const handleNewSale = useCallback(() => {

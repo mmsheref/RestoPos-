@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt, PaymentTypeIcon } from '../types';
 import { useAppContext } from '../context/AppContext';
@@ -89,7 +90,17 @@ const ReceiptsScreen: React.FC = () => {
             const subtotal = selectedReceipt.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const tax = settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0;
             const printerToUse = printers[0];
-            const result = await printReceipt({ items: selectedReceipt.items, total: selectedReceipt.total, subtotal, tax, receiptId: selectedReceipt.id, paymentMethod: selectedReceipt.paymentMethod, settings, printer: printerToUse });
+            const result = await printReceipt({ 
+                items: selectedReceipt.items, 
+                total: selectedReceipt.total, 
+                subtotal, 
+                tax, 
+                receiptId: selectedReceipt.id, 
+                paymentMethod: selectedReceipt.paymentMethod, 
+                settings, 
+                printer: printerToUse,
+                date: selectedReceipt.date // Pass the original receipt date
+            });
             if (!result.success) alert(`Print Failed: ${result.message}`);
             else setIsMenuOpen(false);
         } catch (error: any) {

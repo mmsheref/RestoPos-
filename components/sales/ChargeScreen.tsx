@@ -117,7 +117,7 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
 
 
 interface ChangeWorkspaceProps {
-    paymentResult: { method: string, change: number, receiptId: string };
+    paymentResult: { method: string, change: number, receiptId: string, date: Date };
     total: number;
     isPrinting: boolean;
     handlePrintReceipt: () => void;
@@ -166,7 +166,7 @@ interface ChargeScreenProps {
   onBack: () => void;
   onProcessPayment: (method: string, tendered: number) => void;
   onNewSale: () => void;
-  paymentResult: { method: string, change: number, receiptId: string } | null;
+  paymentResult: { method: string, change: number, receiptId: string, date: Date } | null;
 }
 
 const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, subtotal, onBack, onProcessPayment, onNewSale, paymentResult }) => {
@@ -247,7 +247,8 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
     if (!paymentResult || isPrinting) return;
     setIsPrinting(true);
     const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-    const result = await printReceipt({ items: orderItems, total, subtotal, tax, receiptId: paymentResult.receiptId, paymentMethod: paymentResult.method, settings, printer });
+    // FIX: Pass the transaction date to the printReceipt function.
+    const result = await printReceipt({ items: orderItems, total, subtotal, tax, receiptId: paymentResult.receiptId, paymentMethod: paymentResult.method, settings, printer, date: paymentResult.date });
     setIsPrinting(false);
     if (!result.success) alert(`Print Failed: ${result.message}`);
   };
