@@ -6,7 +6,7 @@ import { NAV_LINKS, SignOutIcon, APP_VERSION } from '../constants';
 import ConfirmModal from './modals/ConfirmModal';
 
 const NavDrawer: React.FC = () => {
-  const { isDrawerOpen, closeDrawer, user, signOut } = useAppContext();
+  const { isDrawerOpen, closeDrawer, user, signOut, settings } = useAppContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
 
   const handleSignOutClick = () => {
@@ -32,7 +32,9 @@ const NavDrawer: React.FC = () => {
         }`}
       >
         <div className="p-5 border-b border-neutral-700">
-          <h2 className="text-2xl font-bold text-white">POS Menu</h2>
+          <h2 className="text-2xl font-bold text-white truncate">
+            {settings.storeName || 'POS Menu'}
+          </h2>
         </div>
         <nav className="flex-1 py-2">
           <ul>
