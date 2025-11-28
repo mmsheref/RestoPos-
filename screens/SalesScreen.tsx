@@ -44,6 +44,7 @@ const SalesScreen: React.FC = () => {
 
   // State to force a repaint and fix the visibility glitch
   const [renderTrigger, setRenderTrigger] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
@@ -91,11 +92,15 @@ const SalesScreen: React.FC = () => {
   // CRITICAL FIX: Force repaint on visibility change to fix browser rendering glitch
   useEffect(() => {
     if (isActive) {
-        requestAnimationFrame(() => {
+        // Toggle opacity slightly to force layout recalculation/paint
+        if (containerRef.current) {
+            containerRef.current.style.opacity = '0.999';
             requestAnimationFrame(() => {
-                setRenderTrigger(c => c + 1);
+                if (containerRef.current) containerRef.current.style.opacity = '';
             });
-        });
+        }
+        // Force React render cycle
+        setRenderTrigger(c => c + 1);
     }
   }, [isActive]);
   
@@ -330,7 +335,7 @@ const SalesScreen: React.FC = () => {
   const isViewingAll = activeGridId === 'All' || debouncedSearchQuery.trim().length > 0;
 
   return (
-    <div className="flex flex-col md:flex-row h-full bg-background font-sans relative overflow-hidden">
+    <div ref={containerRef} className="flex flex-col md:flex-row h-full bg-background font-sans relative overflow-hidden">
       {/* 
         Responsive Layout Strategy:
         Mobile: Grid is always visible. Ticket slides over or appears on top when toggled.
@@ -338,12 +343,19 @@ const SalesScreen: React.FC = () => {
       */}
       
       {/* LEFT PANEL: ITEMS GRID */}
-      <div className={`w-full md:w-[70%] flex-col flex h-full transition-all duration-300`}>
+      <div className={`w-full md:w-[70%] flex-col flex h-full transition-all duration-300 min-w-0`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
         
-        <div className="flex-1 flex flex-col p-2 md:p-4 overflow-hidden relative">
+        <div className="flex-1 flex flex-col p-2 md:p-4 overflow-hidden relative min-w-0">
           {/* Scrollable Grid Area */}
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden pr-1 pb-16 md:pb-0 scroll-smooth">
+          <div 
+            ref={scrollContainerRef} 
+            className="flex-1 overflow-y-auto overflow-x-hidden pr-1 scroll-smooth"
+            style={{ 
+                WebkitOverflowScrolling: 'touch',
+                transform: 'translateZ(0)' // Force GPU layer to prevent rendering glitches
+            }}
+          >
             {items.length === 0 && !debouncedSearchQuery.trim() ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
                 <div className="max-w-md">
@@ -393,7 +405,7 @@ const SalesScreen: React.FC = () => {
       {/* Mobile: Full screen overlay when visible. Desktop: Always visible side column */}
       <div 
         className={`
-            fixed inset-0 z-40 bg-background md:static md:z-auto md:w-[30%] md:flex
+            fixed inset-0 z-50 bg-background md:static md:z-auto md:w-[30%] md:flex
             transform transition-transform duration-300 ease-in-out
             ${isTicketVisible ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
             flex flex-col border-l border-border shadow-2xl md:shadow-none

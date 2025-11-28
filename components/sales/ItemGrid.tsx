@@ -24,9 +24,10 @@ const ItemGrid: React.FC<ItemGridProps> = ({
   
   // Mobile: 3 cols, Tablet/Desktop: 5 cols
   // Mobile: Natural flow (auto rows), Tablet/Desktop: Fixed 4 rows (if fixed mode)
+  // Added substantial bottom padding (pb-32) on mobile to clear the floating bottom cart bar
   const gridClasses = isFixedGrid
-    ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 md:grid-rows-4 gap-2 md:gap-3 h-auto md:h-full pb-20 md:pb-0'
-    : 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3 pb-20 md:pb-0';
+    ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 md:grid-rows-4 gap-2 md:gap-3 h-auto md:h-full pb-32 md:pb-0'
+    : 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3 pb-32 md:pb-0';
 
   return (
     <div className={gridContainerClasses}>

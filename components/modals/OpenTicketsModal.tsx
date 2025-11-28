@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import type { OrderItem, SavedTicket } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -36,7 +35,7 @@ const OpenTicketsModal: React.FC<OpenTicketsModalProps> = ({ isOpen, tickets, on
     const handleMerge = () => {
         if (selectedTicketIds.size < 2) return;
         
-        const ids = Array.from(selectedTicketIds);
+        const ids = Array.from(selectedTicketIds) as string[];
         const firstTicket = tickets.find(t => t.id === ids[0]);
         const defaultName = firstTicket ? `${firstTicket.name} + ${ids.length - 1}` : 'Merged Ticket';
         
