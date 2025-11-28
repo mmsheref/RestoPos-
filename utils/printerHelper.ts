@@ -204,6 +204,7 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     // 1. Init & Header
     let data = COMMANDS.INIT + COMMANDS.CENTER;
     if(settings.storeName) {
+        // Sanitize store name (remove newlines)
         const safeName = settings.storeName.replace(/[\r\n]+/g, ' ').trim().toUpperCase();
         data += COMMANDS.BOLD_ON + safeName + '\n' + COMMANDS.BOLD_OFF;
     }
