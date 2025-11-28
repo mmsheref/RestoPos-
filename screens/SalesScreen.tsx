@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useDebounce } from '../hooks/useDebounce';
+import { printBill } from '../utils/printerHelper';
 
 // Modals and Child Components
 import SaveTicketModal from '../components/modals/SaveTicketModal';
@@ -53,6 +54,9 @@ const SalesScreen: React.FC = () => {
   const [editingTicket, setEditingTicket] = useState<SavedTicket | null>(null);
   const [editingQuantityItemId, setEditingQuantityItemId] = useState<string | null>(null);
   const [tempQuantity, setTempQuantity] = useState<string>('');
+  
+  // State to track if we should print after a successful save
+  const [pendingPrintAction, setPendingPrintAction] = useState(false);
   
   // Grid Editing State
   const [isGridEditing, setIsGridEditing] = useState(false);
@@ -286,6 +290,56 @@ const SalesScreen: React.FC = () => {
       });
   };
 
+  // Helper function to handle printing logic
+  const performPrint = async (ticketItems: OrderItem[], ticketName: string) => {
+      const pSubtotal = ticketItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const pTax = settings.taxEnabled ? pSubtotal * (settings.taxRate / 100) : 0;
+      const pTotal = pSubtotal + pTax;
+      
+      const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
+      const result = await printBill({
+          items: ticketItems,
+          total: pTotal, subtotal: pSubtotal, tax: pTax,
+          ticketName: ticketName,
+          settings, printer,
+      });
+      if (!result.success) {
+          alert(`Print Failed: ${result.message}`);
+      }
+  };
+
+  // Handles the "Print" button click from the Ticket component
+  const handlePrintRequest = useCallback(() => {
+      // If we are already editing a saved ticket, we can print immediately.
+      if (editingTicket) {
+          performPrint(currentOrder, editingTicket.name);
+      } else {
+          // If it's a new unsaved order, we must force a save first.
+          setPendingPrintAction(true);
+          setIsSaveModalOpen(true);
+      }
+  }, [editingTicket, currentOrder, settings, printers]);
+
+  // Handles saving a ticket from the modal
+  const handleSaveTicketComplete = (name: string) => {
+      // 1. Capture current items before clearing state
+      const itemsToSave = [...currentOrder];
+      
+      // 2. Perform Save
+      saveTicket({ id: `T${Date.now()}`, name, items: itemsToSave }); 
+      
+      // 3. Clear UI State
+      clearOrder(); 
+      setEditingTicket(null); 
+      setIsSaveModalOpen(false); 
+      
+      // 4. Handle pending print action
+      if (pendingPrintAction) {
+          performPrint(itemsToSave, name);
+          setPendingPrintAction(false); // Reset
+      }
+  };
+
   if (salesView === 'payment') {
     return <ChargeScreen total={total} tax={tax} subtotal={subtotal} onBack={() => setSalesView('grid')} onProcessPayment={handleProcessPayment} onNewSale={handleNewSale} paymentResult={paymentResult} orderItems={currentOrder} />;
   }
@@ -357,12 +411,14 @@ const SalesScreen: React.FC = () => {
                 clearOrder();
                 setEditingTicket(null);
             } else {
+                setPendingPrintAction(false); // Ensure we don't print if just clicking save
                 setIsSaveModalOpen(true);
             }
         }}
         onCharge={() => setSalesView('payment')} onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
-        onSaveTicket={() => setIsSaveModalOpen(true)} printers={printers}
+        onSaveTicket={() => { setPendingPrintAction(false); setIsSaveModalOpen(true); }} printers={printers}
         onClearTicket={handleClearTicket}
+        onPrintRequest={handlePrintRequest}
       />
       
       {currentOrder.length > 0 && !isTicketVisible && (
@@ -375,13 +431,8 @@ const SalesScreen: React.FC = () => {
 
       <SaveTicketModal 
         isOpen={isSaveModalOpen} 
-        onClose={() => setIsSaveModalOpen(false)} 
-        onSave={(name) => { 
-            saveTicket({ id: `T${Date.now()}`, name, items: currentOrder }); 
-            clearOrder(); 
-            setEditingTicket(null); 
-            setIsSaveModalOpen(false); 
-        }} 
+        onClose={() => { setIsSaveModalOpen(false); setPendingPrintAction(false); }} 
+        onSave={handleSaveTicketComplete} 
         editingTicket={editingTicket} 
       />
       <OpenTicketsModal isOpen={isOpenTicketsModalOpen} tickets={savedTickets} onClose={() => setIsOpenTicketsModalOpen(false)} onLoadTicket={handleLoadTicket} onDeleteTicket={handleDeleteTicket} />

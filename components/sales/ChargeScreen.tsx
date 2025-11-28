@@ -103,13 +103,10 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
         </div>
         
         {cashPaymentType && (
-            <div className="flex gap-3 mt-6 flex-wrap justify-center">
-                <button onClick={() => onProcessPayment(cashPaymentType.name, total)} className="px-6 py-3 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-800 transition-colors">
-                    Exact Cash
-                </button>
+            <div className="grid grid-cols-3 gap-3 mt-6 w-full max-w-md">
                 {uniqueQuickCash.map(amount => (
-                    <button key={amount} onClick={() => onProcessPayment(cashPaymentType.name, amount)} className="px-6 py-3 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                        {amount.toFixed(2)}
+                    <button key={amount} onClick={() => onProcessPayment(cashPaymentType.name, amount)} className="px-2 py-3 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors border border-border">
+                        {amount.toFixed(0)}
                     </button>
                 ))}
             </div>
@@ -201,17 +198,24 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
 
   const uniqueQuickCash = useMemo(() => {
     const suggestions = new Set<number>();
-    const notes = [10, 20, 50, 100, 200, 500];
-    if (total > 10) suggestions.add(Math.ceil(total / 10) * 10);
-    if (total > 50) suggestions.add(Math.ceil(total / 50) * 50);
+    
+    // Add logical next denominations
+    suggestions.add(Math.ceil(total / 10) * 10);
+    suggestions.add(Math.ceil(total / 20) * 20);
+    suggestions.add(Math.ceil(total / 50) * 50);
     suggestions.add(Math.ceil(total / 100) * 100);
-    const nextNote = notes.find(n => n >= total);
-    if (nextNote) suggestions.add(nextNote);
-    if (nextNote) {
-        const noteAfter = notes.find(n => n > nextNote);
-        if (noteAfter) suggestions.add(noteAfter);
-    }
-    return Array.from(suggestions).filter(amount => amount > total).sort((a, b) => a - b).slice(0, 3);
+    suggestions.add(Math.ceil(total / 500) * 500);
+    suggestions.add(Math.ceil(total / 1000) * 1000);
+
+    // Filter out values smaller than total and sort
+    const validSuggestions = Array.from(suggestions)
+        .filter(amount => amount >= total)
+        .sort((a, b) => a - b);
+    
+    // If exact amount isn't in top 3 suggestions (e.g. 123 vs 130), stick it in if logic permits, 
+    // but requested feature was "smart suggestions", typically meaning easy-change notes.
+    // We'll take top 6 valid options.
+    return validSuggestions.slice(0, 6);
   }, [total]);
     
   useEffect(() => {
