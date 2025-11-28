@@ -408,6 +408,60 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try { await deleteDoc(doc(db, 'users', getUid(), 'saved_tickets', ticketId)); } 
       catch (e) { console.error(e); alert("Failed to delete ticket."); }
   }, [getUid]);
+  
+  const mergeTickets = useCallback(async (ticketIds: string[], newName: string) => {
+    if (ticketIds.length < 2) return;
+    const uid = getUid();
+
+    // 1. Identify tickets to merge
+    const ticketsToMerge = savedTickets.filter(t => ticketIds.includes(t.id));
+    if (ticketsToMerge.length === 0) return;
+
+    // 2. Aggregate Items
+    const mergedItems: OrderItem[] = [];
+    ticketsToMerge.forEach(ticket => {
+        ticket.items.forEach(item => {
+            // Regenerate lineItemId to ensure uniqueness in the new merged list
+            mergedItems.push({ 
+                ...item, 
+                lineItemId: `L${Date.now()}-${Math.random().toString(36).substr(2, 9)}` 
+            });
+        });
+    });
+
+    // 3. Create New Ticket
+    const newTicketId = `T${Date.now()}`;
+    const newTicket: SavedTicket = {
+        id: newTicketId,
+        name: newName,
+        items: mergedItems
+    };
+
+    // 4. Update Local State (Optimistic UI)
+    setSavedTicketsState(prev => [
+        ...prev.filter(t => !ticketIds.includes(t.id)),
+        newTicket
+    ]);
+
+    // 5. Perform Batch DB Operation
+    try {
+        const batch = writeBatch(db);
+        
+        // Add new ticket
+        batch.set(doc(db, 'users', uid, 'saved_tickets', newTicketId), newTicket);
+
+        // Delete old tickets
+        ticketIds.forEach(id => {
+            batch.delete(doc(db, 'users', uid, 'saved_tickets', id));
+        });
+
+        await batch.commit();
+    } catch (e) {
+        console.error("Merge failed:", e);
+        // Revert local state if needed (advanced error handling)
+        alert("Failed to merge tickets on server. Please check connection.");
+    }
+  }, [savedTickets, getUid]);
 
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
       const newGridWithOrder = { ...grid, order: customGrids.length };
@@ -606,7 +660,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
       receipts, addReceipt, loadMoreReceipts, hasMoreReceipts,
       items, addItem, updateItem, deleteItem,
-      savedTickets, saveTicket, removeTicket,
+      savedTickets, saveTicket, removeTicket, mergeTickets,
       customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
       tables, addTable, updateTable, setTables, removeTable,
       activeGridId, setActiveGridId,

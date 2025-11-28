@@ -181,6 +181,7 @@ export interface AppContextType {
   savedTickets: SavedTicket[];
   saveTicket: (ticket: SavedTicket) => void;
   removeTicket: (ticketId: string) => void;
+  mergeTickets: (ticketIds: string[], newName: string) => Promise<void>;
 
   customGrids: CustomGrid[];
   addCustomGrid: (grid: CustomGrid) => void;
