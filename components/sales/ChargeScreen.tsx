@@ -68,7 +68,10 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
           <ArrowLeftIcon className="h-5 w-5" />
           Back
         </button>
-        <button className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold border border-border px-3 py-1.5 rounded-lg">
+        <button 
+          onClick={() => alert("Split payment functionality is coming in a future update!")}
+          className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold border border-border px-3 py-1.5 rounded-lg active:bg-surface-muted"
+        >
           <SplitIcon className="h-5 w-5" />
           Split
         </button>
@@ -176,19 +179,14 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
   const hasBeenFocused = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
-  // FIX: Guarantees a default 'Cash' payment type is always available unless explicitly disabled by the user.
-  // This prevents the cash option from disappearing if the payment types haven't loaded from Firestore yet or are missing.
   const cashPaymentType = useMemo(() => {
     const config = paymentTypes.find(p => p.id === 'cash');
-    // If 'cash' is explicitly configured and disabled, hide it.
     if (config && !config.enabled) {
       return undefined;
     }
-    // If 'cash' is configured and enabled, use that configuration.
     if (config) {
       return config;
     }
-    // If 'cash' is not configured at all (e.g., new user, data issue), provide a default fallback.
     return {
       id: 'cash',
       name: 'Cash',
@@ -247,7 +245,6 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
     if (!paymentResult || isPrinting) return;
     setIsPrinting(true);
     const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-    // FIX: Pass the transaction date to the printReceipt function.
     const result = await printReceipt({ items: orderItems, total, subtotal, tax, receiptId: paymentResult.receiptId, paymentMethod: paymentResult.method, settings, printer, date: paymentResult.date });
     setIsPrinting(false);
     if (!result.success) alert(`Print Failed: ${result.message}`);

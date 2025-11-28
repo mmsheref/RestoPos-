@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { AppSettings } from '../../../types';
 
 interface FinancialCardProps {
@@ -7,6 +8,28 @@ interface FinancialCardProps {
 }
 
 const FinancialCard: React.FC<FinancialCardProps> = ({ settings, updateSettings }) => {
+  // Use local state to handle decimal input smoothly
+  const [taxRateInput, setTaxRateInput] = useState(settings.taxRate.toString());
+
+  // Sync local state if settings update from external source
+  useEffect(() => {
+    setTaxRateInput(settings.taxRate.toString());
+  }, [settings.taxRate]);
+
+  const handleTaxRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Allow digits and a single decimal point
+    if (/^\d*\.?\d*$/.test(val)) {
+      setTaxRateInput(val);
+      const num = parseFloat(val);
+      if (!isNaN(num)) {
+         updateSettings({ taxRate: num });
+      } else if (val === '') {
+         updateSettings({ taxRate: 0 });
+      }
+    }
+  };
+
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
       <h2 className="text-xl font-semibold mb-4 text-text-primary">Financial</h2>
@@ -28,11 +51,13 @@ const FinancialCard: React.FC<FinancialCardProps> = ({ settings, updateSettings 
           <div>
             <label htmlFor="taxRate" className="block text-sm font-medium text-text-secondary">Tax Rate (%)</label>
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               id="taxRate"
-              value={settings.taxRate}
-              onChange={(e) => updateSettings({ taxRate: parseFloat(e.target.value) || 0 })}
+              value={taxRateInput}
+              onChange={handleTaxRateChange}
               className="mt-1 block w-full p-2 border border-border rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm bg-background"
+              placeholder="0"
             />
           </div>
         )}
