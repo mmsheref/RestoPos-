@@ -55,7 +55,7 @@ const SalesScreen: React.FC = () => {
   const [isGridEditing, setIsGridEditing] = useState(false);
   
   // Payment state
-  const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ method: string, change: number, receiptId: string, date: Date } | null>(null);
 
   // Pagination & Scroll State
   const [displayLimit, setDisplayLimit] = useState(40);
@@ -119,8 +119,9 @@ const SalesScreen: React.FC = () => {
   const handleProcessPayment = useCallback((method: string, tendered: number) => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
-    addReceipt({ id: receiptId, date: new Date(), items: currentOrder, total, paymentMethod: method });
-    setPaymentResult({ method, change: tendered - total, receiptId });
+    const receiptDate = new Date();
+    addReceipt({ id: receiptId, date: receiptDate, items: currentOrder, total, paymentMethod: method });
+    setPaymentResult({ method, change: tendered - total, receiptId, date: receiptDate });
   }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
   
   const handleNewSale = useCallback(() => {
@@ -280,7 +281,7 @@ const SalesScreen: React.FC = () => {
       <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
         <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2">
             {items.length === 0 && !debouncedSearchQuery.trim() ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
                 <div className="max-w-md">

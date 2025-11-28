@@ -139,6 +139,7 @@ interface PrintBillArgs {
 export interface PrintReceiptArgs extends PrintBillArgs {
     receiptId: string;
     paymentMethod: string;
+    date: Date;
 }
 
 const sendToPrinter = async (data: string, printer: Printer): Promise<{ success: boolean; message: string }> => {
@@ -203,7 +204,6 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     // 1. Init & Header
     let data = COMMANDS.INIT + COMMANDS.CENTER;
     if(settings.storeName) {
-        // Sanitize store name (remove newlines)
         const safeName = settings.storeName.replace(/[\r\n]+/g, ' ').trim().toUpperCase();
         data += COMMANDS.BOLD_ON + safeName + '\n' + COMMANDS.BOLD_OFF;
     }
@@ -219,14 +219,13 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     // 2. Items (Compact Format)
     consolidatedItems.forEach(item => {
         const lineTotal = formatCurrency(item.price * item.quantity);
-        // Format: "2 x 50.00 Burger ............ 100.00"
-        const leftText = `${item.quantity} x ${item.price.toFixed(2)} ${item.name}`;
+        // Format: "50 x 2 Burger ............ 100.00"
+        const leftText = `${item.price.toFixed(0)} x ${item.quantity} ${item.name}`;
         data += createRow(leftText, lineTotal, width);
     });
     data += createDivider(width);
 
     // 3. Totals
-    // For Bill, just show Total huge
     data += COMMANDS.CENTER + COMMANDS.BOLD_ON + COMMANDS.TXT_4SQUARE;
     data += "TOTAL: " + formatCurrency(total);
     data += COMMANDS.TXT_NORMAL + COMMANDS.BOLD_OFF + "\n";
@@ -237,7 +236,7 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
 };
 
 export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: boolean; message: string }> => {
-    const { items, total, subtotal, tax, receiptId, paymentMethod, settings, printer } = args;
+    const { items, total, subtotal, tax, receiptId, paymentMethod, settings, printer, date } = args;
     
     if (!printer) {
       return { success: false, message: "No printer configured." };
@@ -245,16 +244,15 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     
     const width = printer.paperWidth === '80mm' ? 48 : 32;
     const consolidatedItems = consolidateItems(items);
-    const now = new Date();
-    const dateStr = now.toLocaleDateString();
-    const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const receiptDate = date; // Use the provided date
+    const dateStr = receiptDate.toLocaleDateString();
+    const timeStr = receiptDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
     // 1. Init & Header
     let data = COMMANDS.INIT + COMMANDS.CENTER;
     
     if (settings.storeName) {
         const safeName = settings.storeName.replace(/[\r\n]+/g, ' ').trim().toUpperCase();
-        // Double Width Header
         data += COMMANDS.BOLD_ON + COMMANDS.TXT_2WIDTH + safeName + COMMANDS.TXT_NORMAL + '\n' + COMMANDS.BOLD_OFF;
     }
     
@@ -266,7 +264,6 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     
     // 2. Meta
     data += COMMANDS.LEFT;
-    // Compact Meta line: "12/01/2023 10:30     #R8923"
     const metaLeft = `${dateStr} ${timeStr}`;
     const metaRight = `#${receiptId.slice(-4)}`;
     data += createRow(metaLeft, metaRight, width);
@@ -275,8 +272,8 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     // 3. Items
     consolidatedItems.forEach(item => {
         const lineTotal = formatCurrency(item.price * item.quantity);
-        // Format: "2 x 50.00 Burger ............ 100.00"
-        const leftText = `${item.quantity} x ${item.price.toFixed(2)} ${item.name}`;
+        // Format: "50 x 2 Burger ............ 100.00"
+        const leftText = `${item.price.toFixed(0)} x ${item.quantity} ${item.name}`;
         data += createRow(leftText, lineTotal, width);
     });
     data += createDivider(width);
@@ -288,8 +285,6 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
          data += createDivider(width);
     }
     
-    // TOTAL (Double Size)
-    // Centered for impact
     data += COMMANDS.CENTER + COMMANDS.BOLD_ON + COMMANDS.TXT_4SQUARE;
     data += "TOTAL: " + formatCurrency(total) + "\n";
     data += COMMANDS.TXT_NORMAL + COMMANDS.BOLD_OFF + COMMANDS.LEFT; // Reset
