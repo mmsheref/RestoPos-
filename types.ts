@@ -173,6 +173,7 @@ export interface AppContextType {
   addReceipt: (receipt: Receipt) => void;
   loadMoreReceipts: () => Promise<void>;
   hasMoreReceipts: boolean;
+  deleteReceipt: (id: string) => Promise<void>;
   
   items: Item[];
   addItem: (item: Item) => void;

@@ -2,17 +2,21 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt, PaymentTypeIcon } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon } from '../constants';
+import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon, TrashIcon } from '../constants';
 import { printReceipt } from '../utils/printerHelper';
 import { useDebounce } from '../hooks/useDebounce';
+import PinVerifyModal from '../components/modals/PinVerifyModal';
 
 const ReceiptsScreen: React.FC = () => {
-  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes } = useAppContext();
+  const { receipts, openDrawer, settings, printers, loadMoreReceipts, hasMoreReceipts, paymentTypes, deleteReceipt } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [isDetailView, setIsDetailView] = useState(false); // For mobile view switching
+  
+  // PIN Verification State
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
@@ -64,6 +68,14 @@ const ReceiptsScreen: React.FC = () => {
   const handleSelectReceipt = (receipt: Receipt) => {
       setSelectedReceipt(receipt);
       setIsDetailView(true);
+  };
+  
+  const handleDeleteSuccess = () => {
+      if (selectedReceipt) {
+          deleteReceipt(selectedReceipt.id);
+          setSelectedReceipt(null);
+          setIsDetailView(false);
+      }
   };
 
   const ReceiptDetailView = () => {
@@ -134,6 +146,13 @@ const ReceiptsScreen: React.FC = () => {
                    </button>
                    <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted" role="menuitem">
                      <RefundIcon className="h-5 w-5" /> Refund
+                   </button>
+                   <button 
+                      onClick={() => { setIsMenuOpen(false); setIsPinModalOpen(true); }} 
+                      className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-surface-muted" 
+                      role="menuitem"
+                   >
+                     <TrashIcon className="h-5 w-5" /> Delete Receipt
                    </button>
                  </div>
                </div>
@@ -244,6 +263,15 @@ const ReceiptsScreen: React.FC = () => {
       <div className={`w-full md:w-2/3 flex-col ${isDetailView ? 'flex' : 'hidden md:flex'}`}>
         <ReceiptDetailView />
       </div>
+
+      <PinVerifyModal 
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        onSuccess={handleDeleteSuccess}
+        title="Delete Receipt"
+        message="Are you sure you want to permanently delete this receipt? This action cannot be undone."
+        adminPin={settings.reportsPIN}
+      />
     </div>
   );
 };
