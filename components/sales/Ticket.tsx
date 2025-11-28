@@ -334,7 +334,14 @@ const Ticket: React.FC<TicketProps> = (props) => {
       </header>
       
       {/* Scrollable Area: Items + Sticky Totals */}
-      <div ref={listContainerRef} className="flex-1 overflow-y-auto flex flex-col relative pb-4">
+      <div 
+        ref={listContainerRef} 
+        className="flex-1 overflow-y-auto flex flex-col relative pb-4"
+        style={{ 
+            WebkitOverflowScrolling: 'touch',
+            transform: 'translateZ(0)' // Fix for painting glitches on iOS/Mobile when toggling display
+        }}
+      >
           {isClearConfirmVisible ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <TrashIcon className="h-12 w-12 text-red-400 mb-4" />
