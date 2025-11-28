@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, CalendarIcon, DownloadIcon, TableIcon } from '../constants';
+import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, CalendarIcon, DownloadIcon, TableIcon, CloseIcon } from '../constants';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -21,8 +21,7 @@ interface Metrics {
 }
 
 const ReportsScreen: React.FC = () => {
-    const { openDrawer, receipts, settings } = useAppContext();
-    const [isLocked, setIsLocked] = useState(!!settings.reportsPIN);
+    const { openDrawer, receipts, settings, isReportsUnlocked, setReportsUnlocked, paymentTypes } = useAppContext();
     const [pinInput, setPinInput] = useState('');
     const [error, setError] = useState('');
     
@@ -38,18 +37,18 @@ const ReportsScreen: React.FC = () => {
         now.setHours(23,59,59,999);
         return now.toISOString().slice(0, 16);
     });
+    
+    const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
 
     // Navigation
     const [activeTab, setActiveTab] = useState<ReportTab>('overview');
 
-    useEffect(() => {
-        setIsLocked(!!settings.reportsPIN);
-    }, [settings.reportsPIN]);
+    const isLocked = !!settings.reportsPIN && !isReportsUnlocked;
 
     const handleUnlock = (e: React.FormEvent) => {
         e.preventDefault();
         if (pinInput === settings.reportsPIN) {
-            setIsLocked(false);
+            setReportsUnlocked(true);
             setError('');
             setPinInput('');
         } else {
@@ -95,9 +94,11 @@ const ReportsScreen: React.FC = () => {
 
         return receipts.filter(r => {
             const date = new Date(r.date);
-            return date >= startTime && date <= endTime;
+            const matchesDate = date >= startTime && date <= endTime;
+            const matchesPayment = paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
+            return matchesDate && matchesPayment;
         });
-    }, [receipts, filter, customStartDate, customEndDate]);
+    }, [receipts, filter, customStartDate, customEndDate, paymentMethodFilter]);
 
     const metrics = useMemo<Metrics>(() => {
         let totalSales = 0;
@@ -148,6 +149,7 @@ const ReportsScreen: React.FC = () => {
         let csvContent = "REPORT SUMMARY\n";
         csvContent += `Generated,${new Date().toLocaleString()}\n`;
         csvContent += `Filter,${filter === 'custom' ? `${customStartDate} to ${customEndDate}` : filter}\n`;
+        csvContent += `Payment Method,${paymentMethodFilter === 'all' ? 'All Methods' : paymentMethodFilter}\n`;
         csvContent += `Total Sales,${metrics.totalSales.toFixed(2)}\n`;
         csvContent += `Total Orders,${metrics.totalOrders}\n\n`;
 
@@ -271,30 +273,45 @@ const ReportsScreen: React.FC = () => {
                 </div>
             </div>
 
-            {/* Custom Date Picker */}
-            {filter === 'custom' && (
-                <div className="flex-shrink-0 p-4 bg-surface border-b border-border flex flex-wrap gap-4 items-center justify-center animate-fadeIn">
-                    <div className="flex items-center gap-2">
-                        <CalendarIcon className="h-5 w-5 text-text-secondary" />
-                        <span className="text-sm font-medium text-text-secondary">From:</span>
-                        <input 
-                            type="datetime-local" 
-                            value={customStartDate} 
-                            onChange={(e) => setCustomStartDate(e.target.value)}
-                            className="p-2 text-sm border border-border rounded-md bg-background text-text-primary"
-                        />
-                    </div>
-                    <div className="flex items-center gap-2">
-                         <span className="text-sm font-medium text-text-secondary">To:</span>
-                         <input 
-                            type="datetime-local" 
-                            value={customEndDate} 
-                            onChange={(e) => setCustomEndDate(e.target.value)}
-                            className="p-2 text-sm border border-border rounded-md bg-background text-text-primary"
-                        />
-                    </div>
+            {/* Filters Bar */}
+            <div className="flex-shrink-0 bg-surface border-b border-border p-3 flex flex-wrap gap-4 items-center justify-between animate-fadeIn">
+                <div className="flex items-center gap-2 w-full md:w-auto">
+                    <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">Payment Method:</span>
+                    <select
+                        value={paymentMethodFilter}
+                        onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                        className="bg-surface-muted border border-border text-text-primary text-sm rounded-lg p-2 focus:ring-primary focus:border-primary block"
+                    >
+                        <option value="all">All Methods</option>
+                        {paymentTypes.filter(p => p.enabled).map(pt => (
+                            <option key={pt.id} value={pt.name}>{pt.name}</option>
+                        ))}
+                    </select>
                 </div>
-            )}
+                
+                {filter === 'custom' && (
+                    <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                        <div className="flex items-center bg-surface-muted border border-border rounded-lg p-1">
+                            <span className="px-2 text-xs font-bold text-text-secondary">From</span>
+                            <input 
+                                type="datetime-local" 
+                                value={customStartDate} 
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                className="p-1.5 text-sm bg-transparent border-none text-text-primary focus:ring-0"
+                            />
+                            <div className="w-px h-4 bg-border mx-2"></div>
+                            <span className="px-2 text-xs font-bold text-text-secondary">To</span>
+                             <input 
+                                type="datetime-local" 
+                                value={customEndDate} 
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                className="p-1.5 text-sm bg-transparent border-none text-text-primary focus:ring-0"
+                            />
+                        </div>
+                    </div>
+                )}
+            </div>
+
 
             {/* Sub Navigation */}
             <div className="flex-shrink-0 border-b border-border bg-surface px-4">
