@@ -5,6 +5,157 @@ import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
 import { printBill } from '../../utils/printerHelper';
 import { useAppContext } from '../../context/AppContext';
 
+// --- Helper Component: Swipeable Item Row ---
+interface SwipeableOrderItemProps {
+    item: OrderItem;
+    editingQuantityItemId: string | null;
+    tempQuantity: string;
+    onQuantityClick: (item: OrderItem) => void;
+    onQuantityChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onQuantityCommit: () => void;
+    onQuantityKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+    onIncrement: (id: string, qty: number) => void;
+    onDecrement: (id: string) => void;
+    onDelete: (id: string) => void;
+}
+
+const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
+    item, editingQuantityItemId, tempQuantity,
+    onQuantityClick, onQuantityChange, onQuantityCommit, onQuantityKeyDown,
+    onIncrement, onDecrement, onDelete
+}) => {
+    const [offset, setOffset] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+    const startX = useRef(0);
+    const currentOffset = useRef(0);
+    const isOpen = offset < -60; // Threshold to consider "open"
+
+    // Handlers for Touch
+    const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
+        // Don't start swipe if editing quantity
+        if (editingQuantityItemId === item.lineItemId) return;
+        
+        setIsSwiping(true);
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        startX.current = clientX;
+        currentOffset.current = offset;
+    };
+
+    const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+        if (!isSwiping) return;
+        const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+        const diff = clientX - startX.current;
+        
+        // Calculate new offset (clamped)
+        // We only allow swiping left (negative offset) up to -100px
+        let newOffset = currentOffset.current + diff;
+        if (newOffset > 0) newOffset = 0; // Can't swipe right past 0
+        if (newOffset < -100) newOffset = -100; // Max swipe width
+
+        setOffset(newOffset);
+    };
+
+    const handleTouchEnd = () => {
+        setIsSwiping(false);
+        // Snap logic
+        if (offset < -40) {
+            setOffset(-80); // Snap open (reveal width)
+        } else {
+            setOffset(0); // Snap closed
+        }
+    };
+
+    // Close on click if open
+    const handleContentClick = () => {
+        if (isOpen) setOffset(0);
+    };
+
+    return (
+        <li className="relative border-b border-border overflow-hidden h-[72px] select-none">
+            {/* Background Action Layer (Delete) */}
+            <div className="absolute inset-0 flex justify-end bg-red-600">
+                <button
+                    onClick={() => onDelete(item.lineItemId)}
+                    className="w-[80px] h-full flex flex-col items-center justify-center text-white active:bg-red-700 transition-colors"
+                >
+                    <TrashIcon className="h-6 w-6 mb-1" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Delete</span>
+                </button>
+            </div>
+
+            {/* Foreground Content Layer */}
+            <div 
+                className="absolute inset-0 bg-surface flex items-center px-4 py-3 transition-transform duration-200 ease-out"
+                style={{ transform: `translateX(${offset}px)` }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onMouseDown={handleTouchStart}
+                onMouseMove={handleTouchMove}
+                onMouseUp={handleTouchEnd}
+                onMouseLeave={handleTouchEnd}
+                onClick={handleContentClick}
+            >
+                {/* Item Details */}
+                <div className="flex-grow min-w-0 pr-2 pointer-events-none">
+                    <p className="font-semibold text-text-primary truncate">{item.name}</p>
+                    <p className="text-text-secondary text-xs">{item.price.toFixed(2)}</p>
+                </div>
+
+                {/* Quantity Controls - Stop Propagation to prevent swipe when clicking buttons */}
+                <div className="flex items-center justify-center gap-3 mx-2" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                    <button 
+                        onClick={() => onDecrement(item.lineItemId)} 
+                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        aria-label="Decrease quantity"
+                    >
+                        -
+                    </button>
+                    
+                    {editingQuantityItemId === item.lineItemId ? (
+                        <input 
+                            type="tel" 
+                            value={tempQuantity} 
+                            onChange={onQuantityChange} 
+                            onBlur={onQuantityCommit} 
+                            onKeyDown={onQuantityKeyDown} 
+                            className="font-mono w-12 text-center text-lg text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary p-1" 
+                            autoFocus 
+                            onFocus={(e) => e.target.select()} 
+                        />
+                    ) : (
+                        <span 
+                            onClick={() => onQuantityClick(item)} 
+                            className="font-mono w-8 text-center text-lg text-text-primary cursor-pointer active:scale-95 transition-transform"
+                        >
+                            {item.quantity}
+                        </span>
+                    )}
+                    
+                    <button 
+                        onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
+                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        aria-label="Increase quantity"
+                    >
+                        +
+                    </button>
+                </div>
+
+                {/* Total Price */}
+                <div className="w-16 text-right pointer-events-none">
+                    <p className="font-bold text-text-primary">{(item.price * item.quantity).toFixed(2)}</p>
+                </div>
+            </div>
+            
+            {/* Visual indicator for "Swipe left" if not swiped */}
+            {!isOpen && !isSwiping && (
+                <div className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-l from-black/5 to-transparent pointer-events-none md:hidden"></div>
+            )}
+        </li>
+    );
+};
+
+
 interface TicketProps {
     className?: string;
     onClose?: () => void;
@@ -220,57 +371,22 @@ const Ticket: React.FC<TicketProps> = (props) => {
           ) : (
             <>
                 {/* List Items */}
-                <div className="p-4 pb-2">
+                <div className="pb-2">
                     <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
-                        <li key={item.lineItemId} className="relative group flex items-center text-sm py-3 border-b border-border last:border-b-0 select-none">
-                        <div className="flex-grow">
-                            <p className="font-semibold text-text-primary">{item.name}</p>
-                            <p className="text-text-secondary">{item.price.toFixed(2)}</p>
-                        </div>
-                        <div className="flex items-center justify-center gap-2 mx-4">
-                            <button 
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                    e.currentTarget.blur();
-                                    removeFromOrder(item.lineItemId);
-                                }} 
-                                className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation" 
-                                aria-label={`Remove one ${item.name}`}
-                            >
-                                -
-                            </button>
-                            
-                            {editingQuantityItemId === item.lineItemId ? (
-                                <input type="tel" value={tempQuantity} onChange={handleQuantityInputChange} onBlur={handleQuantityChangeCommit} onKeyDown={handleQuantityInputKeyDown} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary" autoFocus onFocus={(e) => e.target.select()} />
-                            ) : (
-                                <span onClick={() => handleQuantityClick(item)} onPointerDown={(e) => e.stopPropagation()} className="font-mono w-10 text-center text-base text-text-primary cursor-pointer rounded-md active:bg-surface-muted p-1" aria-label="Edit quantity" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') handleQuantityClick(item)}}>{item.quantity}</span>
-                            )}
-                            
-                            <button 
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                    e.currentTarget.blur();
-                                    updateOrderItemQuantity(item.lineItemId, item.quantity + 1);
-                                }} 
-                                className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation" 
-                                aria-label={`Add one ${item.name}`}
-                            >
-                                +
-                            </button>
-                        </div>
-                        <p className="w-16 font-semibold text-text-primary text-right">{(item.price * item.quantity).toFixed(2)}</p>
-                        <button 
-                            onClick={(e) => {
-                                e.currentTarget.blur();
-                                deleteLineItem(item.lineItemId);
-                            }} 
-                            className="ml-2 p-2 text-text-muted active:text-red-500 rounded-full transition-colors focus:outline-none touch-manipulation"
-                            aria-label={`Delete ${item.name}`}
-                        >
-                            <TrashIcon className="h-5 w-5" />
-                        </button>
-                        </li>
+                        <SwipeableOrderItem
+                            key={item.lineItemId}
+                            item={item}
+                            editingQuantityItemId={editingQuantityItemId}
+                            tempQuantity={tempQuantity}
+                            onQuantityClick={handleQuantityClick}
+                            onQuantityChange={handleQuantityInputChange}
+                            onQuantityCommit={handleQuantityChangeCommit}
+                            onQuantityKeyDown={handleQuantityInputKeyDown}
+                            onIncrement={updateOrderItemQuantity}
+                            onDecrement={removeFromOrder}
+                            onDelete={deleteLineItem}
+                        />
                     ))}
                     </ul>
                 </div>
