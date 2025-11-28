@@ -277,7 +277,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       return (
         <button 
           onClick={onOpenTickets}
-          className="w-full bg-amber-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-amber-600 active:scale-[0.98]"
+          className="w-full bg-amber-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-amber-600 active:scale-[0.98] whitespace-nowrap"
         >
           Open Tickets ({savedTickets.length})
         </button>
