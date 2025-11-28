@@ -89,7 +89,6 @@ const SalesScreen: React.FC = () => {
   const [isTicketVisible, setIsTicketVisible] = useState(false);
 
   // CRITICAL FIX: Force repaint on visibility change to fix browser rendering glitch
-  // Using requestAnimationFrame ensures we wait for the browser paint cycle
   useEffect(() => {
     if (isActive) {
         requestAnimationFrame(() => {
@@ -169,8 +168,7 @@ const SalesScreen: React.FC = () => {
   }, [activeGridId, items, customGrids, debouncedSearchQuery]);
 
   const paginatedItems = useMemo(() => {
-      // Only paginate "All" view or Search results to allow infinite scroll. 
-      // Fixed grids (custom grids) are small (20 items) and shouldn't be sliced.
+      // Only paginate "All" view or Search results
       if (activeGridId !== 'All' && !debouncedSearchQuery.trim()) {
           return itemsForDisplay;
       }
@@ -179,8 +177,6 @@ const SalesScreen: React.FC = () => {
 
   // Infinite Scroll Observer
   useEffect(() => {
-    // Only activate infinite scroll if we are in a scrollable list view (All Items or Search)
-    // AND we have more items to show
     if ((activeGridId !== 'All' && !debouncedSearchQuery.trim()) || paginatedItems.length >= itemsForDisplay.length) {
         return; 
     }
@@ -289,7 +285,6 @@ const SalesScreen: React.FC = () => {
       });
   };
 
-  // Helper function to handle printing logic
   const performPrint = async (ticketItems: OrderItem[], ticketName: string) => {
       const pSubtotal = ticketItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const pTax = settings.taxEnabled ? pSubtotal * (settings.taxRate / 100) : 0;
@@ -307,35 +302,24 @@ const SalesScreen: React.FC = () => {
       }
   };
 
-  // Handles the "Print" button click from the Ticket component
   const handlePrintRequest = useCallback(() => {
-      // If we are already editing a saved ticket, we can print immediately.
       if (editingTicket) {
           performPrint(currentOrder, editingTicket.name);
       } else {
-          // If it's a new unsaved order, we must force a save first.
           setPendingPrintAction(true);
           setIsSaveModalOpen(true);
       }
   }, [editingTicket, currentOrder, settings, printers]);
 
-  // Handles saving a ticket from the modal
   const handleSaveTicketComplete = (name: string) => {
-      // 1. Capture current items before clearing state
       const itemsToSave = [...currentOrder];
-      
-      // 2. Perform Save
       saveTicket({ id: `T${Date.now()}`, name, items: itemsToSave }); 
-      
-      // 3. Clear UI State
       clearOrder(); 
       setEditingTicket(null); 
       setIsSaveModalOpen(false); 
-      
-      // 4. Handle pending print action
       if (pendingPrintAction) {
           performPrint(itemsToSave, name);
-          setPendingPrintAction(false); // Reset
+          setPendingPrintAction(false); 
       }
   };
 
@@ -346,24 +330,33 @@ const SalesScreen: React.FC = () => {
   const isViewingAll = activeGridId === 'All' || debouncedSearchQuery.trim().length > 0;
 
   return (
-    <div className="flex flex-col md:flex-row h-full bg-background font-sans relative">
-      <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
+    <div className="flex flex-col md:flex-row h-full bg-background font-sans relative overflow-hidden">
+      {/* 
+        Responsive Layout Strategy:
+        Mobile: Grid is always visible. Ticket slides over or appears on top when toggled.
+        Tablet/Desktop: Grid (Left 70%) and Ticket (Right 30%) are side-by-side.
+      */}
+      
+      {/* LEFT PANEL: ITEMS GRID */}
+      <div className={`w-full md:w-[70%] flex-col flex h-full transition-all duration-300`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
-        <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2">
+        
+        <div className="flex-1 flex flex-col p-2 md:p-4 overflow-hidden relative">
+          {/* Scrollable Grid Area */}
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden pr-1 pb-16 md:pb-0 scroll-smooth">
             {items.length === 0 && !debouncedSearchQuery.trim() ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
                 <div className="max-w-md">
                   <ItemsIcon className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
                   <h2 className="mt-4 text-xl font-semibold text-text-primary">Your Menu is Empty</h2>
                   <p className="mt-2 text-sm">
-                    Get started by adding your first menu item. Once you add items, they will appear here.
+                    Get started by adding your first menu item.
                   </p>
                   <button
                     onClick={() => navigate('/items')}
                     className="mt-6 px-6 py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover shadow-md"
                   >
-                    Add Your First Item
+                    Add Items
                   </button>
                 </div>
               </div>
@@ -379,6 +372,8 @@ const SalesScreen: React.FC = () => {
               />
             )}
           </div>
+
+          {/* Categories Tab Bar */}
           <CategoryTabs
             grids={customGrids}
             activeGridId={activeGridId}
@@ -394,46 +389,76 @@ const SalesScreen: React.FC = () => {
         </div>
       </div>
 
-      <Ticket
-        className={`w-full md:w-[30%] flex-col ${isTicketVisible ? 'flex' : 'hidden md:flex'}`}
-        onClose={() => setIsTicketVisible(false)} currentOrder={currentOrder} editingTicket={editingTicket}
-        savedTickets={savedTickets} settings={settings} total={total} subtotal={subtotal} tax={tax}
-        editingQuantityItemId={editingQuantityItemId} tempQuantity={tempQuantity} setEditingQuantityItemId={setEditingQuantityItemId}
-        setTempQuantity={setTempQuantity} removeFromOrder={removeFromOrder} deleteLineItem={deleteLineItem}
-        updateOrderItemQuantity={updateOrderItemQuantity}
-        handleQuantityClick={handleQuantityClick} handleQuantityChangeCommit={handleQuantityChangeCommit}
-        handleQuantityInputChange={(e) => /^\d*$/.test(e.target.value) && setTempQuantity(e.target.value)}
-        handleQuantityInputKeyDown={(e) => { if (e.key === 'Enter') handleQuantityChangeCommit(); else if (e.key === 'Escape') setEditingQuantityItemId(null); }}
-        handlePrimarySaveAction={() => {
-            if (editingTicket) {
-                saveTicket({ ...editingTicket, items: currentOrder });
-                clearOrder();
-                setEditingTicket(null);
-            } else {
-                setPendingPrintAction(false); // Ensure we don't print if just clicking save
-                setIsSaveModalOpen(true);
-            }
-        }}
-        onCharge={() => setSalesView('payment')} onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
-        onSaveTicket={() => { setPendingPrintAction(false); setIsSaveModalOpen(true); }} printers={printers}
-        onClearTicket={handleClearTicket}
-        onPrintRequest={handlePrintRequest}
-      />
+      {/* RIGHT PANEL: TICKET */}
+      {/* Mobile: Full screen overlay when visible. Desktop: Always visible side column */}
+      <div 
+        className={`
+            fixed inset-0 z-40 bg-background md:static md:z-auto md:w-[30%] md:flex
+            transform transition-transform duration-300 ease-in-out
+            ${isTicketVisible ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
+            flex flex-col border-l border-border shadow-2xl md:shadow-none
+        `}
+      >
+        <Ticket
+          className="w-full h-full flex flex-col"
+          onClose={() => setIsTicketVisible(false)} 
+          currentOrder={currentOrder} 
+          editingTicket={editingTicket}
+          savedTickets={savedTickets} 
+          settings={settings} 
+          total={total} 
+          subtotal={subtotal} 
+          tax={tax}
+          editingQuantityItemId={editingQuantityItemId} 
+          tempQuantity={tempQuantity} 
+          setEditingQuantityItemId={setEditingQuantityItemId}
+          setTempQuantity={setTempQuantity} 
+          removeFromOrder={removeFromOrder} 
+          deleteLineItem={deleteLineItem}
+          updateOrderItemQuantity={updateOrderItemQuantity}
+          handleQuantityClick={handleQuantityClick} 
+          handleQuantityChangeCommit={handleQuantityChangeCommit}
+          handleQuantityInputChange={(e) => /^\d*$/.test(e.target.value) && setTempQuantity(e.target.value)}
+          handleQuantityInputKeyDown={(e) => { if (e.key === 'Enter') handleQuantityChangeCommit(); else if (e.key === 'Escape') setEditingQuantityItemId(null); }}
+          handlePrimarySaveAction={() => {
+              if (editingTicket) {
+                  saveTicket({ ...editingTicket, items: currentOrder });
+                  clearOrder();
+                  setEditingTicket(null);
+              } else {
+                  setPendingPrintAction(false);
+                  setIsSaveModalOpen(true);
+              }
+          }}
+          onCharge={() => setSalesView('payment')} 
+          onOpenTickets={() => setIsOpenTicketsModalOpen(true)}
+          onSaveTicket={() => { setPendingPrintAction(false); setIsSaveModalOpen(true); }} 
+          printers={printers}
+          onClearTicket={handleClearTicket}
+          onPrintRequest={handlePrintRequest}
+        />
+      </div>
       
+      {/* MOBILE BOTTOM CART BAR */}
       {currentOrder.length > 0 && !isTicketVisible && (
-        <button onClick={() => setIsTicketVisible(true)} className="md:hidden fixed bottom-4 right-4 bg-primary text-primary-content font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2 z-20">
-            <ReceiptIcon className="h-5 w-5" />
-            <span>View Order ({currentOrder.reduce((acc, item) => acc + item.quantity, 0)})</span>
-            <span className="font-mono bg-primary-hover/50 px-2 py-0.5 rounded-full text-sm">{total.toFixed(2)}</span>
-        </button>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-3 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] safe-area-bottom">
+            <button 
+                onClick={() => setIsTicketVisible(true)} 
+                className="w-full bg-primary text-primary-content font-bold py-3 px-4 rounded-lg flex items-center justify-between shadow-md active:scale-[0.99] transition-transform"
+            >
+                <div className="flex items-center gap-2">
+                    <span className="bg-primary-hover px-2 py-0.5 rounded text-sm min-w-[24px] text-center">
+                        {currentOrder.reduce((acc, item) => acc + item.quantity, 0)}
+                    </span>
+                    <span className="text-sm font-medium">View Order</span>
+                </div>
+                <span className="text-lg">₹{total.toFixed(2)}</span>
+            </button>
+        </div>
       )}
 
-      <SaveTicketModal 
-        isOpen={isSaveModalOpen} 
-        onClose={() => { setIsSaveModalOpen(false); setPendingPrintAction(false); }} 
-        onSave={handleSaveTicketComplete} 
-        editingTicket={editingTicket} 
-      />
+      {/* Modals */}
+      <SaveTicketModal isOpen={isSaveModalOpen} onClose={() => { setIsSaveModalOpen(false); setPendingPrintAction(false); }} onSave={handleSaveTicketComplete} editingTicket={editingTicket} />
       <OpenTicketsModal isOpen={isOpenTicketsModalOpen} tickets={savedTickets} onClose={() => setIsOpenTicketsModalOpen(false)} onLoadTicket={handleLoadTicket} onDeleteTicket={handleDeleteTicket} />
       <SelectItemModal isOpen={isSelectItemModalOpen} onClose={() => setIsSelectItemModalOpen(false)} onSelect={handleSelectItem} allItems={items} />
       <ManageGridsModal isOpen={isManageGridsModalOpen} onClose={() => setIsManageGridsModalOpen(false)} initialGrids={customGrids} onSave={handleSaveGrids} />

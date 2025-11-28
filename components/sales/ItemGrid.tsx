@@ -22,9 +22,11 @@ const ItemGrid: React.FC<ItemGridProps> = ({
 
   const gridContainerClasses = isFixedGrid ? 'h-full' : '';
   
+  // Mobile: 3 cols, Tablet/Desktop: 5 cols
+  // Mobile: Natural flow (auto rows), Tablet/Desktop: Fixed 4 rows (if fixed mode)
   const gridClasses = isFixedGrid
-    ? 'grid grid-cols-5 grid-rows-4 gap-3 h-full'
-    : 'grid grid-cols-5 gap-3';
+    ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 md:grid-rows-4 gap-2 md:gap-3 h-auto md:h-full pb-20 md:pb-0'
+    : 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 md:gap-3 pb-20 md:pb-0';
 
   return (
     <div className={gridContainerClasses}>
@@ -32,7 +34,6 @@ const ItemGrid: React.FC<ItemGridProps> = ({
         {itemsForDisplay.map((item, index) => {
           if (!item) {
             // Only allow assigning items to empty slots if we are in 'grid' mode.
-            // In 'all' mode, empty slots don't exist or don't matter.
             if (mode === 'all') return null;
 
             return (
@@ -40,15 +41,13 @@ const ItemGrid: React.FC<ItemGridProps> = ({
                 type="button"
                 key={`placeholder-${index}`}
                 onClick={() => {
-                    // Only allow assignment if editing or if it's a fixed grid (user intent is clear)
-                    // Current requirement: Only edit button enables editing, but typically clicking empty slot is safe.
-                    // However, to align with "edit mode" strictness:
                     if (isEditing) onAssignItem(index);
                 }}
                 disabled={!isEditing}
                 className={`w-full rounded-lg border-2 border-dashed border-border 
                            flex items-center justify-center text-text-muted transition-colors 
-                           ${isFixedGrid ? 'h-full' : 'aspect-square'}
+                           aspect-square md:aspect-auto
+                           ${isFixedGrid ? 'md:h-full' : ''}
                            ${isEditing ? 'cursor-pointer hover:bg-surface-muted hover:border-primary hover:text-primary bg-surface-muted/20' : 'opacity-50 cursor-default'}`}
               >
                 {isEditing && <PlusIcon className="h-8 w-8" />}

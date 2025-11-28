@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
 import ItemFormModal from '../components/modals/ItemFormModal';
-import { SearchIcon, TrashIcon, CloseIcon } from '../constants';
+import { SearchIcon, TrashIcon, CloseIcon, PencilIcon } from '../constants';
 import ConfirmCsvImportModal from '../components/modals/ConfirmCsvImportModal';
 import { parseCsvToItems } from '../utils/csvHelper';
 import ConfirmModal from '../components/modals/ConfirmModal';
@@ -31,46 +31,81 @@ interface ItemRowProps {
 const ItemRow = React.memo<ItemRowProps>(({ item, onEdit, onDelete }) => {
     const [imgError, setImgError] = useState(false);
 
+    const ItemImage = () => (
+        item.imageUrl && !imgError ? (
+            <img 
+                className="h-10 w-10 md:h-12 md:w-12 rounded-md object-cover bg-surface-muted" 
+                src={item.imageUrl} 
+                alt={item.name} 
+                onError={() => setImgError(true)} 
+                loading="lazy"
+            />
+        ) : (
+            <div className="h-10 w-10 md:h-12 md:w-12 rounded-md bg-surface-muted flex items-center justify-center text-text-muted">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+        )
+    );
+
     return (
-        <tr 
-            onClick={() => onEdit(item)}
-            className="hover:bg-surface-muted transition-colors cursor-pointer group"
-        >
-            <td className="px-6 py-4 whitespace-nowrap">
-                {item.imageUrl && !imgError ? (
-                    <img 
-                        className="h-10 w-10 rounded-md object-cover bg-surface-muted" 
-                        src={item.imageUrl} 
-                        alt={item.name} 
-                        onError={() => setImgError(true)} 
-                        loading="lazy"
-                    />
-                ) : (
-                    <div className="h-10 w-10 rounded-md bg-surface-muted flex items-center justify-center text-text-muted">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+        <>
+            {/* Desktop Table Row */}
+            <tr 
+                onClick={() => onEdit(item)}
+                className="hidden md:table-row hover:bg-surface-muted transition-colors cursor-pointer group"
+            >
+                <td className="px-6 py-4 whitespace-nowrap">
+                    <ItemImage />
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{item.price.toFixed(2)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{item.stock}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDelete(item);
+                        }} 
+                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors relative z-10"
+                        title="Delete Item"
+                    >
+                        <TrashIcon className="h-5 w-5" />
+                    </button>
+                </td>
+            </tr>
+
+            {/* Mobile List Card */}
+            <tr className="md:hidden border-b border-border">
+                <td colSpan={5} className="p-0">
+                    <div 
+                        onClick={() => onEdit(item)}
+                        className="flex items-center p-4 active:bg-surface-muted cursor-pointer"
+                    >
+                        <ItemImage />
+                        <div className="ml-4 flex-grow min-w-0">
+                            <p className="text-sm font-semibold text-text-primary truncate">{item.name}</p>
+                            <p className="text-xs text-text-muted mt-0.5">{item.stock} in stock</p>
+                        </div>
+                        <div className="text-right mr-4">
+                            <p className="text-sm font-bold text-text-primary">₹{item.price.toFixed(2)}</p>
+                        </div>
+                        <button 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onDelete(item);
+                            }} 
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full"
+                        >
+                            <TrashIcon className="h-5 w-5" />
+                        </button>
                     </div>
-                )}
-            </td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{item.price.toFixed(2)}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{item.stock}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <button 
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onDelete(item);
-                    }} 
-                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors relative z-10"
-                    title="Delete Item"
-                    aria-label={`Delete ${item.name}`}
-                >
-                    <TrashIcon className="h-5 w-5" />
-                </button>
-            </td>
-        </tr>
+                </td>
+            </tr>
+        </>
     );
 });
 
@@ -130,7 +165,6 @@ const ItemsScreen: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  // useCallback ensures these don't change on every render, allowing ItemRow memoization to work
   const handleEditItem = useCallback((item: Item) => {
     setEditingItem(item);
     setIsModalOpen(true);
@@ -192,13 +226,7 @@ const ItemsScreen: React.FC = () => {
              if (csvFileInputRef.current) csvFileInputRef.current.value = '';
           }
       };
-      
-      try {
-        reader.readAsText(file);
-      } catch (err) {
-        console.error("File reading error", err);
-        alert("Could not read file.");
-      }
+      reader.readAsText(file);
   };
 
   const handleConfirmCsvImport = () => {
@@ -211,15 +239,15 @@ const ItemsScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-6 bg-background h-full flex flex-col min-h-0">
+    <div className="p-4 md:p-6 bg-background h-full flex flex-col min-h-0">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 flex-shrink-0">
-        <h1 className="text-3xl font-bold text-text-primary self-start md:self-center">Menu Items</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-text-primary self-start md:self-center">Menu Items</h1>
         <div className="flex w-full md:w-auto items-center gap-2">
             <div className="relative flex-grow md:flex-grow-0">
                 <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted h-5 w-5" />
                 <input 
                     type="text" 
-                    placeholder="Search items..." 
+                    placeholder="Search..." 
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-10 pr-10 py-2 border rounded-lg w-full md:w-64 bg-surface border-border text-text-primary focus:ring-2 focus:ring-primary"
@@ -234,32 +262,36 @@ const ItemsScreen: React.FC = () => {
                     </button>
                 )}
             </div>
-            <button
-                onClick={handleCsvImportClick}
-                className="bg-teal-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors flex-shrink-0 shadow-sm"
-                title="Import items from a CSV file"
-            >
-                Import
-            </button>
-            <button
-                onClick={exportItemsCsv}
-                className="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex-shrink-0 shadow-sm"
-                title="Export all items to a CSV file"
-            >
-                Export
-            </button>
+            
+            <div className="hidden md:flex gap-2">
+                <button
+                    onClick={handleCsvImportClick}
+                    className="bg-teal-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-teal-600 transition-colors shadow-sm"
+                    title="Import CSV"
+                >
+                    Import
+                </button>
+                <button
+                    onClick={exportItemsCsv}
+                    className="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                    title="Export CSV"
+                >
+                    Export
+                </button>
+            </div>
+            
             <button
               onClick={handleAddItem}
-              className="bg-primary text-primary-content font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors flex-shrink-0 shadow-sm"
+              className="bg-primary text-primary-content font-semibold px-4 py-2 rounded-lg hover:bg-primary-hover transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
             >
-              + Add Item
+              + Add
             </button>
         </div>
       </div>
 
       <div className="bg-surface rounded-lg shadow-sm flex-grow border border-border overflow-auto min-h-0">
         <table className="min-w-full divide-y divide-border relative">
-          <thead className="bg-surface-muted sticky top-0 z-20 shadow-sm">
+          <thead className="bg-surface-muted sticky top-0 z-20 shadow-sm hidden md:table-header-group">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Image</th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Name</th>
@@ -338,7 +370,6 @@ const ItemsScreen: React.FC = () => {
         confirmButtonClass="bg-red-600 hover:bg-red-700"
       >
         <p>Are you sure you want to permanently delete <strong>{confirmDeleteModal.item?.name}</strong>?</p>
-        <p className="mt-2 text-sm text-amber-600 dark:text-amber-400">This will also remove the item from any custom grids it appears on. This action cannot be undone.</p>
       </ConfirmModal>
 
     </div>
