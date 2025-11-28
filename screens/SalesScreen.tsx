@@ -424,7 +424,7 @@ const SalesScreen: React.FC = () => {
       <div 
         className={`
             fixed inset-0 z-[50] bg-background flex flex-col
-            transition-transform duration-300 ease-out
+            transition-transform duration-300 ease-out will-change-transform
             md:static md:z-auto md:w-[320px] lg:w-[380px] md:border-l md:border-border md:translate-y-0
             ${isTicketVisible ? 'translate-y-0' : 'translate-y-full'}
         `}

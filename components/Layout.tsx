@@ -63,10 +63,14 @@ const Layout: React.FC = () => {
         title={finalTitle} 
         onMenuClick={openDrawer}
       />}
+      
       <NavDrawer />
-      <main
-        className={`flex-1 flex flex-col shadow-lg overflow-hidden relative transition-transform duration-300 ease-in-out ${isDrawerOpen ? 'translate-x-64' : 'translate-x-0'}`}
-      >
+      
+      {/* 
+         REMOVED: transform translate-x-64
+         Fixed: Laggy drawer animation by using overlay instead of pushing content.
+      */}
+      <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* 
             PERFORMANCE OPTIMIZATION: "Keep Alive" Screens
             Instead of unmounting screens (which destroys DOM and triggers heavy re-renders),
