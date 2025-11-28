@@ -2,7 +2,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
-import { printBill } from '../../utils/printerHelper';
 import { useAppContext } from '../../context/AppContext';
 
 // --- Helper Component: Swipeable Item Row ---
@@ -188,6 +187,7 @@ interface TicketProps {
     onOpenTickets: () => void;
     onSaveTicket: () => void;
     onClearTicket: () => void;
+    onPrintRequest: () => void; // Added Prop for print workflow
 }
 
 const Ticket: React.FC<TicketProps> = (props) => {
@@ -197,12 +197,11 @@ const Ticket: React.FC<TicketProps> = (props) => {
     editingQuantityItemId, tempQuantity, setEditingQuantityItemId, setTempQuantity, 
     removeFromOrder, deleteLineItem, updateOrderItemQuantity,
     handleQuantityClick, handleQuantityChangeCommit, handleQuantityInputChange, handleQuantityInputKeyDown,
-    handlePrimarySaveAction, onCharge, onOpenTickets, onSaveTicket, onClearTicket
+    handlePrimarySaveAction, onCharge, onOpenTickets, onSaveTicket, onClearTicket, onPrintRequest
   } = props;
   
   const [isTicketMenuOpen, setTicketMenuOpen] = useState(false);
   const [isClearConfirmVisible, setIsClearConfirmVisible] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
   const ticketMenuRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const prevOrderLength = useRef(currentOrder.length);
@@ -247,18 +246,9 @@ const Ticket: React.FC<TicketProps> = (props) => {
            alert("Ticket is empty. Nothing to print.");
            return;
         }
-        setIsPrinting(true);
-        const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
-        const result = await printBill({
-            items: currentOrder,
-            total, subtotal, tax,
-            ticketName: editingTicket?.name,
-            settings, printer,
-        });
-        setIsPrinting(false);
-        if (!result.success) {
-            alert(`Print Failed: ${result.message}`);
-        }
+        // Instead of printing directly, we now request a print from the parent component
+        // This allows the parent to enforce "Save before Print" logic.
+        onPrintRequest();
         break;
 
       case 'edit':
@@ -337,8 +327,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
                 >
                     <div className="py-1">
                         <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">Clear Ticket</button>
-                        <button onClick={() => handleTicketAction('print')} disabled={isPrinting} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted disabled:opacity-50">
-                          {isPrinting ? 'Printing...' : 'Print Bill'}
+                        <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">
+                          Print Bill
                         </button>
                         <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">Edit Ticket Details</button>
                     </div>
