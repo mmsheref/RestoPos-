@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     storeName: 'My Restaurant',
     storeAddress: '123 Food Street, Flavor Town',
     receiptFooter: 'Follow us @myrestaurant',
+    reportsPIN: '', // Security feature
 };
 
 interface FirebaseErrorState {
@@ -197,7 +198,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             fetchAllDataOnce();
 
             // --- REAL-TIME LISTENER for HIGH-FREQUENCY data ONLY (Receipts) ---
-            const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(25));
+            // Increased limit to 100 to support decent reporting out of the box
+            const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
             const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
                 const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 setReceiptsState(prev => {
@@ -205,7 +207,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
                 });
                 if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
-                if (snapshot.docs.length < 25) setHasMoreReceipts(false); else setHasMoreReceipts(true);
+                if (snapshot.docs.length < 100) setHasMoreReceipts(false); else setHasMoreReceipts(true);
             });
             
             setIsLoading(false);
@@ -301,7 +303,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadMoreReceipts = useCallback(async () => {
       if (!lastReceiptDoc || !user) return;
       try {
-          const qNext = query(collection(db, 'users', user.uid, 'receipts'), orderBy('date', 'desc'), startAfter(lastReceiptDoc), limit(25));
+          const qNext = query(collection(db, 'users', user.uid, 'receipts'), orderBy('date', 'desc'), startAfter(lastReceiptDoc), limit(50));
           const snapshot = await getDocs(qNext);
           if (!snapshot.empty) {
               const newReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
@@ -315,7 +317,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
     // Optimistic UI update
-    setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 50));
+    setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 100));
     try { 
         await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
     } 

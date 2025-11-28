@@ -102,6 +102,7 @@ export interface AppSettings {
   storeName?: string;
   storeAddress?: string;
   receiptFooter?: string;
+  reportsPIN?: string; // New field for security
 }
 
 /**

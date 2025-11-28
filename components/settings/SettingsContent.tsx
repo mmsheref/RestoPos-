@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { SettingsCategory } from '../../screens/SettingsScreen';
@@ -20,6 +21,7 @@ import PrintersCard from './cards/PrintersCard';
 import StoreInfoCard from './cards/StoreInfoCard';
 import DataManagementCard from './cards/DataManagementCard';
 import TablesCard from './cards/TablesCard';
+import SecurityCard from './cards/SecurityCard';
 
 interface SettingsContentProps {
     activeCategory: SettingsCategory;
@@ -126,6 +128,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
             case 'tables': return <TablesCard tables={tables} setTables={setTables} onAdd={handleOpenAddTableModal} onEdit={handleOpenEditTableModal} onRemove={removeTable} />;
             case 'printers': return <PrintersCard printers={printers} onAdd={() => setIsPrinterModalOpen(true)} onTest={handleTestPrinter} onRemove={setPrinterToRemove} testingPrinterId={testingPrinterId} />;
             case 'store_info': return <StoreInfoCard settings={settings} updateSettings={updateSettings} />;
+            case 'security': return <SecurityCard settings={settings} updateSettings={updateSettings} />;
             case 'data': return <DataManagementCard onExport={exportData} onImport={handleImportClick} />;
             default: return null;
         }

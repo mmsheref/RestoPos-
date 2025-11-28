@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { MenuIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
-export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'data';
+export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'security' | 'data';
 
 const SettingsScreen: React.FC = () => {
     const { openDrawer } = useAppContext();
@@ -26,6 +27,7 @@ const SettingsScreen: React.FC = () => {
         tables: 'Tables & Quick Select',
         printers: 'Printers',
         store_info: 'Store Information',
+        security: 'Security & Reports',
         data: 'Data Management',
     };
     const detailTitle = categoryMap[activeCategory];
