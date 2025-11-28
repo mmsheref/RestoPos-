@@ -219,8 +219,8 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     // 2. Items (Compact Format)
     consolidatedItems.forEach(item => {
         const lineTotal = formatCurrency(item.price * item.quantity);
-        // Format: "2 Burger ............ 20.00"
-        const leftText = `${item.quantity} ${item.name}`;
+        // Format: "2 x 50.00 Burger ............ 100.00"
+        const leftText = `${item.quantity} x ${item.price.toFixed(2)} ${item.name}`;
         data += createRow(leftText, lineTotal, width);
     });
     data += createDivider(width);
@@ -275,8 +275,8 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     // 3. Items
     consolidatedItems.forEach(item => {
         const lineTotal = formatCurrency(item.price * item.quantity);
-        // Format: "2 Burger ............ 20.00"
-        const leftText = `${item.quantity} ${item.name}`;
+        // Format: "2 x 50.00 Burger ............ 100.00"
+        const leftText = `${item.quantity} x ${item.price.toFixed(2)} ${item.name}`;
         data += createRow(leftText, lineTotal, width);
     });
     data += createDivider(width);
