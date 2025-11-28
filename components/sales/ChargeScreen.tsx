@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { OrderItem, PaymentType } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { printReceipt } from '../../utils/printerHelper';
-import { UserIcon, ArrowLeftIcon, SplitIcon, CheckIcon, PrintIcon, MailIcon, AnimatedCheckIcon, PaymentMethodIcon, ItemsIcon } from '../../constants';
+import { UserIcon, ArrowLeftIcon, CheckIcon, PrintIcon, AnimatedCheckIcon, PaymentMethodIcon, ItemsIcon } from '../../constants';
 
 // --- Sub-components to prevent re-rendering ---
 
@@ -40,8 +40,12 @@ const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, setti
             </div>
             <div className="flex-shrink-0 p-4 bg-surface border-t border-border">
                 <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-text-secondary"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
-                    {settings.taxEnabled && <div className="flex justify-between text-text-secondary"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>}
+                    {settings.taxEnabled && (
+                        <>
+                            <div className="flex justify-between text-text-secondary"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
+                            <div className="flex justify-between text-text-secondary"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>
+                        </>
+                    )}
                     <div className="flex justify-between font-bold text-xl text-text-primary pt-3 mt-1 border-t border-border"><span>Total</span><span>{total.toFixed(2)}</span></div>
                 </div>
             </div>
@@ -80,10 +84,12 @@ const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, setti
                             </li>
                         ))}
                     </ul>
-                    <div className="flex justify-between text-xs text-text-muted border-t border-border pt-2">
-                        <span>Subtotal: {subtotal.toFixed(2)}</span>
-                        <span>Tax: {tax.toFixed(2)}</span>
-                    </div>
+                    {settings.taxEnabled && (
+                        <div className="flex justify-between text-xs text-text-muted border-t border-border pt-2">
+                            <span>Subtotal: {subtotal.toFixed(2)}</span>
+                            <span>Tax: {tax.toFixed(2)}</span>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -149,10 +155,28 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                 <h1 className="text-5xl md:text-7xl font-bold font-mono text-text-primary tracking-tight">₹{total.toFixed(2)}</h1>
             </div>
 
-            <div className="w-full space-y-6">
-                {/* Cash Section - Primary */}
+            <div className="w-full space-y-8">
+                {/* Other Methods Grid */}
+                <div>
+                     <label className="block text-sm font-bold text-text-secondary mb-3 px-1">Payment Methods</label>
+                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {otherPaymentTypes.map(pt => (
+                            <button 
+                            key={pt.id} 
+                            onClick={() => handleProcessOtherPayment(pt.name)} 
+                            className="bg-surface border border-border text-text-primary font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-surface-muted hover:border-primary/50 transition-all flex items-center justify-center gap-2 active:scale-95 py-4 w-full"
+                            >
+                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-primary"/>
+                            <span>{pt.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Cash Section */}
                 {cashPaymentType && (
                     <div className="bg-surface p-6 rounded-2xl border border-border shadow-sm">
+                        <label className="block text-sm font-bold text-text-secondary mb-3">Cash Payment</label>
                         <div className="flex flex-col md:flex-row items-stretch gap-4 mb-4">
                             <div className="relative flex-grow">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xl">₹</span>
@@ -190,31 +214,6 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                         </div>
                     </div>
                 )}
-
-                {/* Other Methods Grid */}
-                <div>
-                     <label className="block text-sm font-bold text-text-secondary mb-3 px-1">Other Payment Methods</label>
-                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {otherPaymentTypes.map(pt => (
-                            <button 
-                            key={pt.id} 
-                            onClick={() => handleProcessOtherPayment(pt.name)} 
-                            className="aspect-[4/3] bg-surface border border-border text-text-primary font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-surface-muted hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 active:scale-95"
-                            >
-                            <PaymentMethodIcon iconName={pt.icon} className="h-8 w-8 text-primary"/>
-                            <span>{pt.name}</span>
-                            </button>
-                        ))}
-                        {/* Split Button */}
-                        <button 
-                            onClick={() => alert("Split Payment feature coming soon")} 
-                            className="aspect-[4/3] bg-surface border border-border text-text-primary font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-surface-muted hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 active:scale-95"
-                        >
-                            <SplitIcon className="h-8 w-8 text-primary"/>
-                            <span>Split</span>
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
       </div>
