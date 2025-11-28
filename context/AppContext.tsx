@@ -37,7 +37,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const ITEMS_CACHE_KEY = 'pos_items_cache';
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
-const GRIDS_CACHE_KEY = 'pos_grids_cache'; // New Cache Key
+const GRIDS_CACHE_KEY = 'pos_grids_cache'; 
 const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
 
@@ -53,7 +53,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
 
   const completeOnboarding = useCallback(async (): Promise<boolean> => {
-    // For native platforms, request permissions before completing.
     if (Capacitor.isNativePlatform()) {
       const permissionsGranted = await requestAppPermissions();
       if (permissionsGranted) {
@@ -61,9 +60,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setShowOnboarding(false);
         return true;
       }
-      return false; // Permissions were denied
+      return false; 
     }
-    // For web, just complete immediately.
     localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
     setShowOnboarding(false);
     return true;
@@ -91,7 +89,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return cached ? JSON.parse(cached) : [];
   });
 
-  // Load Custom Grids from cache to prevent "pop-in" delay
   const [customGrids, setCustomGridsState] = useState<CustomGrid[]>(() => {
       const cached = localStorage.getItem(GRIDS_CACHE_KEY);
       return cached ? JSON.parse(cached) : [];
@@ -103,10 +100,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
   
-  // --- Global Ticket State ---
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   
-  // Sales Screen Persistence
   const [activeGridId, setActiveGridIdState] = useState<string>(() => {
       return localStorage.getItem(ACTIVE_GRID_KEY) || 'All';
   });
@@ -125,18 +120,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setUser(currentUser);
             const uid = currentUser.uid;
 
-            // --- OPTIMIZATION: Fetch low-frequency data ONCE on startup. ---
-            // This function fetches all configuration and primary data in parallel.
             const fetchAllDataOnce = async () => {
               try {
-                // Settings Doc (special case, might need initialization)
                 const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
                 if (settingsSnap.exists()) {
                     const newSettings = settingsSnap.data() as AppSettings;
                     setSettingsState(newSettings);
                     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
                 } else {
-                    // Initialize default settings, payment types, and tables for a new user.
                     await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
                     setSettingsState(DEFAULT_SETTINGS);
                     
@@ -159,7 +150,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     await batch.commit();
                 }
 
-                // Fetch all other collections in parallel for speed.
                 const [
                     itemsSnap,
                     printersSnap,
@@ -197,8 +187,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             fetchAllDataOnce();
 
-            // --- REAL-TIME LISTENER for HIGH-FREQUENCY data ONLY (Receipts) ---
-            // Increased limit to 100 to support decent reporting out of the box
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
             const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
                 const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
@@ -212,7 +200,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             setIsLoading(false);
             return () => { 
-              unsubReceipts(); // Clean up the single listener on logout.
+              unsubReceipts();
             };
 
         } else {
@@ -240,7 +228,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return user.uid;
   }, [user]);
 
-  // --- START: Ticket Management Functions ---
   const addToOrder = useCallback((item: Item) => {
     setCurrentOrder(current => {
       const lastItem = current.length > 0 ? current[current.length - 1] : null;
@@ -297,8 +284,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
     setCurrentOrder(migratedItems);
   }, []);
-  // --- END: Ticket Management Functions ---
-
 
   const loadMoreReceipts = useCallback(async () => {
       if (!lastReceiptDoc || !user) return;
@@ -316,7 +301,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // Optimistic UI update
     setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 100));
     try { 
         await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
@@ -378,20 +362,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid]);
 
   const addItem = useCallback(async (item: Item) => {
-    setItemsState(prev => [...prev, item]); // Optimistic Update
+    setItemsState(prev => [...prev, item]);
     try { await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); } 
     catch (e) { console.error(e); alert("Failed to add item."); }
   }, [getUid]);
 
   const updateItem = useCallback(async (updatedItem: Item) => {
-    setItemsState(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i)); // Optimistic Update
+    setItemsState(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
     try { await setDoc(doc(db, 'users', getUid(), 'items', updatedItem.id), updatedItem); } 
     catch (e) { console.error(e); alert("Failed to update item."); }
   }, [getUid]);
 
   const deleteItem = useCallback(async (id: string) => {
     const uid = getUid();
-    // Optimistic UI updates
     setItemsState(prev => prev.filter(i => i.id !== id));
     setCustomGridsState(prev => prev.map(grid => ({
       ...grid,
@@ -448,20 +431,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const setCustomGrids = useCallback(async (newGrids: CustomGrid[]) => {
       const newGridsWithOrder = newGrids.map((g, i) => ({ ...g, order: i }));
-      setCustomGridsState(newGridsWithOrder); // Optimistic UI Update
+      setCustomGridsState(newGridsWithOrder); 
       
       const batch = writeBatch(db);
       const gridsRef = collection(db, 'users', getUid(), 'custom_grids');
       const oldGridsMap = new Map(customGrids.map(g => [g.id, g]));
 
-      // Delete grids that are no longer present
       for (const oldGrid of customGrids) {
           if (!newGrids.some(g => g.id === oldGrid.id)) {
               batch.delete(doc(gridsRef, oldGrid.id));
           }
       }
       
-      // Set/Update grids
       for (const newGrid of newGridsWithOrder) {
           const existingGrid = oldGridsMap.get(newGrid.id) as CustomGrid | undefined;
           if (!existingGrid || existingGrid.name !== newGrid.name || existingGrid.order !== newGrid.order) {
@@ -473,7 +454,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       catch (e) { console.error("Failed to save grid changes to DB:", e); alert("Failed to save grid changes."); }
   }, [customGrids, getUid]);
   
-  // Table Management
   const addTable = useCallback(async (name: string) => {
     const newTable: Table = { 
         id: `tbl_${Date.now()}`, 
@@ -499,20 +479,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const setTables = useCallback(async (newTables: Table[]) => {
     const newTablesWithOrder = newTables.map((t, i) => ({ ...t, order: i }));
-    setTablesState(newTablesWithOrder); // Optimistic update
+    setTablesState(newTablesWithOrder);
     
     const batch = writeBatch(db);
     const tablesRef = collection(db, 'users', getUid(), 'tables');
     const oldTablesMap = new Map(tables.map(t => [t.id, t]));
     
-    // Delete removed tables
     tables.forEach(oldTable => {
         if (!newTables.find(newTable => newTable.id === oldTable.id)) {
             batch.delete(doc(tablesRef, oldTable.id));
         }
     });
 
-    // Set/Update tables
     newTablesWithOrder.forEach((table) => {
         const oldTable = oldTablesMap.get(table.id) as Table | undefined;
         if (!oldTable || oldTable.name !== table.name || oldTable.order !== table.order) {
@@ -527,14 +505,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
-    setItemsState(newItems); // Optimistic Update
+    setItemsState(newItems);
+    // Batch deletion might fail if too many docs, but for replacement, we can iterate.
+    // For large imports, a more robust batched approach similar to restoreData is recommended.
     const batch = writeBatch(db);
     const itemsRef = collection(db, 'users', getUid(), 'items');
     try {
-      // Get all existing items to delete them
       const snapshot = await getDocs(itemsRef);
       snapshot.docs.forEach(doc => batch.delete(doc.ref));
-      // Add all new items
       newItems.forEach(item => batch.set(doc(itemsRef), item));
       await batch.commit();
     } catch (e) { alert("Failed to import items. Data unchanged."); } 
@@ -585,16 +563,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const uid = getUid();
       try {
           await clearAllData(uid);
-          const batch = writeBatch(db);
-          batch.set(doc(db, 'users', uid, 'config', 'settings'), data.settings);
-          (data.items || []).forEach(item => batch.set(doc(db, 'users', uid, 'items', item.id), item));
-          (data.printers || []).forEach(p => batch.set(doc(db, 'users', uid, 'printers', p.id), p));
-          (data.paymentTypes || []).forEach(pt => batch.set(doc(db, 'users', uid, 'payment_types', pt.id), pt));
-          (data.receipts || []).forEach(r => batch.set(doc(db, 'users', uid, 'receipts', r.id), {...r, date: new Date(r.date)}));
-          (data.savedTickets || []).forEach(t => batch.set(doc(db, 'users', uid, 'saved_tickets', t.id), t));
-          (data.customGrids || []).forEach(g => batch.set(doc(db, 'users', uid, 'custom_grids', g.id), g));
-          (data.tables || []).forEach(t => batch.set(doc(db, 'users', uid, 'tables', t.id), t));
-          await batch.commit();
+          
+          // Collect all write operations
+          const operations: { ref: any; data: any }[] = [];
+          
+          operations.push({ ref: doc(db, 'users', uid, 'config', 'settings'), data: data.settings });
+          (data.items || []).forEach(item => operations.push({ ref: doc(db, 'users', uid, 'items', item.id), data: item }));
+          (data.printers || []).forEach(p => operations.push({ ref: doc(db, 'users', uid, 'printers', p.id), data: p }));
+          (data.paymentTypes || []).forEach(pt => operations.push({ ref: doc(db, 'users', uid, 'payment_types', pt.id), data: pt }));
+          (data.receipts || []).forEach(r => operations.push({ ref: doc(db, 'users', uid, 'receipts', r.id), data: {...r, date: new Date(r.date)} }));
+          (data.savedTickets || []).forEach(t => operations.push({ ref: doc(db, 'users', uid, 'saved_tickets', t.id), data: t }));
+          (data.customGrids || []).forEach(g => operations.push({ ref: doc(db, 'users', uid, 'custom_grids', g.id), data: g }));
+          (data.tables || []).forEach(t => operations.push({ ref: doc(db, 'users', uid, 'tables', t.id), data: t }));
+
+          // Commit in chunks of 500
+          const chunkSize = 500;
+          for (let i = 0; i < operations.length; i += chunkSize) {
+              const batch = writeBatch(db);
+              const chunk = operations.slice(i, i + chunkSize);
+              chunk.forEach(op => batch.set(op.ref, op.data));
+              await batch.commit();
+          }
+
       } catch(e) { console.error(e); alert("Restore failed."); } finally { setIsLoading(false); }
   }, [getUid]);
 
