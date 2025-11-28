@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import type { OrderItem, SavedTicket } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -98,6 +99,11 @@ const OpenTicketsModal: React.FC<OpenTicketsModalProps> = ({ isOpen, tickets, on
                               <div>
                                 <p className="font-bold text-text-primary">{ticket.name}</p>
                                 <p className="text-sm text-text-secondary">{ticket.items.length} items &bull; Total: {calculateTotal(ticket.items).toFixed(2)}</p>
+                                {ticket.lastModified && (
+                                    <p className="text-xs text-text-muted mt-0.5">
+                                        Last saved: {new Date(ticket.lastModified).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </p>
+                                )}
                               </div>
                           </div>
                           

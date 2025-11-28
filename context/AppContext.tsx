@@ -401,8 +401,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid, customGrids]);
 
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
-      setSavedTicketsState(prev => [...prev.filter(t => t.id !== ticket.id), ticket]);
-      try { await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticket); } 
+      const ticketWithTimestamp = { ...ticket, lastModified: Date.now() };
+      setSavedTicketsState(prev => [...prev.filter(t => t.id !== ticket.id), ticketWithTimestamp]);
+      try { await setDoc(doc(db, 'users', getUid(), 'saved_tickets', ticket.id), ticketWithTimestamp); } 
       catch (e) { console.error(e); alert("Failed to save ticket."); }
   }, [getUid]);
 
@@ -437,7 +438,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newTicket: SavedTicket = {
         id: newTicketId,
         name: newName,
-        items: mergedItems
+        items: mergedItems,
+        lastModified: Date.now()
     };
 
     // 4. Update Local State (Optimistic UI)

@@ -18,7 +18,7 @@ import ItemGrid from '../components/sales/ItemGrid';
 import CategoryTabs from '../components/sales/CategoryTabs';
 import Ticket from '../components/sales/Ticket';
 import ChargeScreen from '../components/sales/ChargeScreen';
-import { ReceiptIcon, ItemsIcon } from '../constants';
+import { ItemsIcon } from '../constants';
 
 const GRID_SIZE = 20; // 5 columns * 4 rows
 
@@ -41,10 +41,6 @@ const SalesScreen: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isActive = location.pathname === '/sales';
-
-  // State to force a repaint and fix the visibility glitch
-  const [renderTrigger, setRenderTrigger] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
@@ -89,18 +85,10 @@ const SalesScreen: React.FC = () => {
   
   const [isTicketVisible, setIsTicketVisible] = useState(false);
 
-  // CRITICAL FIX: Force repaint on visibility change to fix browser rendering glitch
+  // Force scroll container reflow when active to fix mobile glitches
   useEffect(() => {
-    if (isActive) {
-        // Toggle opacity slightly to force layout recalculation/paint
-        if (containerRef.current) {
-            containerRef.current.style.opacity = '0.999';
-            requestAnimationFrame(() => {
-                if (containerRef.current) containerRef.current.style.opacity = '';
-            });
-        }
-        // Force React render cycle
-        setRenderTrigger(c => c + 1);
+    if (isActive && scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
     }
   }, [isActive]);
   
@@ -264,6 +252,10 @@ const SalesScreen: React.FC = () => {
           loadOrder(ticket.items);
           setEditingTicket(ticket);
           setIsOpenTicketsModalOpen(false);
+          // On mobile, show ticket after loading
+          if (window.innerWidth < 768) {
+              setIsTicketVisible(true);
+          }
       };
       if (currentOrder.length > 0) {
           setConfirmModalState({
@@ -335,80 +327,106 @@ const SalesScreen: React.FC = () => {
   const isViewingAll = activeGridId === 'All' || debouncedSearchQuery.trim().length > 0;
 
   return (
-    <div ref={containerRef} className="flex flex-col md:flex-row h-full bg-background font-sans relative overflow-hidden">
-      {/* 
-        Responsive Layout Strategy:
-        Mobile: Grid is always visible. Ticket slides over or appears on top when toggled.
-        Tablet/Desktop: Grid (Left 70%) and Ticket (Right 30%) are side-by-side.
-      */}
+    <div className="flex h-full w-full bg-background font-sans relative overflow-hidden">
       
-      {/* LEFT PANEL: ITEMS GRID */}
-      <div className={`w-full md:w-[70%] flex-col flex h-full transition-all duration-300 min-w-0`}>
+      {/* 
+        LAYOUT STRATEGY:
+        Mobile: 
+          - Grid is always Layer 0.
+          - Ticket is Layer 1 (Full screen Overlay).
+          - Bottom Cart Bar is fixed on Layer 0.
+        Tablet/Desktop:
+          - Grid is Left Column.
+          - Ticket is Right Column.
+      */}
+
+      {/* --- GRID SECTION (Main Content) --- */}
+      <div className="flex-1 flex flex-col min-w-0 h-full relative">
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
         
-        <div className="flex-1 flex flex-col p-2 md:p-4 overflow-hidden relative min-w-0">
-          {/* Scrollable Grid Area */}
-          <div 
-            ref={scrollContainerRef} 
-            className="flex-1 overflow-y-auto overflow-x-hidden pr-1 scroll-smooth"
-            style={{ 
-                WebkitOverflowScrolling: 'touch',
-                transform: 'translateZ(0)' // Force GPU layer to prevent rendering glitches
-            }}
-          >
-            {items.length === 0 && !debouncedSearchQuery.trim() ? (
-              <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
-                <div className="max-w-md">
-                  <ItemsIcon className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
-                  <h2 className="mt-4 text-xl font-semibold text-text-primary">Your Menu is Empty</h2>
-                  <p className="mt-2 text-sm">
-                    Get started by adding your first menu item.
-                  </p>
-                  <button
-                    onClick={() => navigate('/items')}
-                    className="mt-6 px-6 py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover shadow-md"
-                  >
-                    Add Items
-                  </button>
+        {/* Scrollable Container */}
+        <div className="flex-1 flex flex-col relative overflow-hidden">
+            <div 
+              ref={scrollContainerRef} 
+              className="flex-1 overflow-y-auto overflow-x-hidden p-2 md:p-4 scroll-smooth pb-24 md:pb-4"
+              style={{ 
+                  WebkitOverflowScrolling: 'touch',
+                  transform: 'translateZ(0)' // Fix for painting glitches on iOS
+              }}
+            >
+              {items.length === 0 && !debouncedSearchQuery.trim() ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
+                  <div className="max-w-md">
+                    <ItemsIcon className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600" />
+                    <h2 className="mt-4 text-xl font-semibold text-text-primary">Your Menu is Empty</h2>
+                    <p className="mt-2 text-sm">
+                      Get started by adding your first menu item.
+                    </p>
+                    <button
+                      onClick={() => navigate('/items')}
+                      className="mt-6 px-6 py-3 bg-primary text-primary-content font-bold rounded-lg hover:bg-primary-hover shadow-md"
+                    >
+                      Add Items
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <ItemGrid
-                itemsForDisplay={paginatedItems}
-                mode={isViewingAll ? 'all' : 'grid'}
-                onAddItemToOrder={addToOrder}
-                onAssignItem={handleOpenSelectItemModal}
-                onRemoveItem={handleRemoveItemFromGrid}
-                isEditing={!isViewingAll && isGridEditing}
-                loadMoreRef={isViewingAll ? loadMoreRef : undefined}
-              />
-            )}
-          </div>
+              ) : (
+                <ItemGrid
+                  itemsForDisplay={paginatedItems}
+                  mode={isViewingAll ? 'all' : 'grid'}
+                  onAddItemToOrder={addToOrder}
+                  onAssignItem={handleOpenSelectItemModal}
+                  onRemoveItem={handleRemoveItemFromGrid}
+                  isEditing={!isViewingAll && isGridEditing}
+                  loadMoreRef={isViewingAll ? loadMoreRef : undefined}
+                />
+              )}
+            </div>
 
-          {/* Categories Tab Bar */}
-          <CategoryTabs
-            grids={customGrids}
-            activeGridId={activeGridId}
-            setActiveGridId={setActiveGridId}
-            onAddNew={handleAddNewGrid}
-            onManage={() => setIsManageGridsModalOpen(true)}
-            isSearchActive={debouncedSearchQuery.trim().length > 0}
-            searchResultsCount={itemsForDisplay.length}
-            searchQuery={searchQuery}
-            isEditing={isGridEditing}
-            onToggleEditMode={() => setIsGridEditing(prev => !prev)}
-          />
+            {/* Floating Mobile Cart Bar */}
+            {currentOrder.length > 0 && (
+                <div className="md:hidden absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-background via-background to-transparent z-10 pb-safe-bottom">
+                    <button 
+                        onClick={() => setIsTicketVisible(true)}
+                        className="w-full bg-primary text-primary-content rounded-xl shadow-lg flex items-center justify-between p-4 active:scale-[0.98] transition-transform"
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="bg-white/20 px-2 py-1 rounded-md text-sm font-bold">
+                                {currentOrder.reduce((acc, item) => acc + item.quantity, 0)}
+                            </span>
+                            <span className="font-bold">View Cart</span>
+                        </div>
+                        <span className="font-bold text-lg">₹{total.toFixed(2)}</span>
+                    </button>
+                </div>
+            )}
+
+            {/* Category Tabs - Anchored at bottom of Grid Area on Mobile for thumbs */}
+            <div className="bg-surface border-t border-border z-20">
+                 <CategoryTabs
+                    grids={customGrids}
+                    activeGridId={activeGridId}
+                    setActiveGridId={setActiveGridId}
+                    onAddNew={handleAddNewGrid}
+                    onManage={() => setIsManageGridsModalOpen(true)}
+                    isSearchActive={debouncedSearchQuery.trim().length > 0}
+                    searchResultsCount={itemsForDisplay.length}
+                    searchQuery={searchQuery}
+                    isEditing={isGridEditing}
+                    onToggleEditMode={() => setIsGridEditing(prev => !prev)}
+                  />
+            </div>
         </div>
       </div>
 
-      {/* RIGHT PANEL: TICKET */}
-      {/* Mobile: Full screen overlay when visible. Desktop: Always visible side column */}
+      {/* --- TICKET SECTION --- */}
+      {/* Mobile: Full Screen Slide-Up Overlay. Desktop: Static Right Column */}
       <div 
         className={`
-            fixed inset-0 z-50 bg-background md:static md:z-auto md:w-[30%] md:flex
-            transform transition-transform duration-300 ease-in-out
-            ${isTicketVisible ? 'translate-y-0' : 'translate-y-full md:translate-y-0'}
-            flex flex-col border-l border-border shadow-2xl md:shadow-none
+            fixed inset-0 z-[50] bg-background flex flex-col
+            transition-transform duration-300 ease-out
+            md:static md:z-auto md:w-[320px] lg:w-[380px] md:border-l md:border-border md:translate-y-0
+            ${isTicketVisible ? 'translate-y-0' : 'translate-y-full'}
         `}
       >
         <Ticket
@@ -437,6 +455,7 @@ const SalesScreen: React.FC = () => {
                   saveTicket({ ...editingTicket, items: currentOrder });
                   clearOrder();
                   setEditingTicket(null);
+                  setIsTicketVisible(false);
               } else {
                   setPendingPrintAction(false);
                   setIsSaveModalOpen(true);
@@ -450,24 +469,6 @@ const SalesScreen: React.FC = () => {
           onPrintRequest={handlePrintRequest}
         />
       </div>
-      
-      {/* MOBILE BOTTOM CART BAR */}
-      {currentOrder.length > 0 && !isTicketVisible && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-3 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] safe-area-bottom">
-            <button 
-                onClick={() => setIsTicketVisible(true)} 
-                className="w-full bg-primary text-primary-content font-bold py-3 px-4 rounded-lg flex items-center justify-between shadow-md active:scale-[0.99] transition-transform"
-            >
-                <div className="flex items-center gap-2">
-                    <span className="bg-primary-hover px-2 py-0.5 rounded text-sm min-w-[24px] text-center">
-                        {currentOrder.reduce((acc, item) => acc + item.quantity, 0)}
-                    </span>
-                    <span className="text-sm font-medium">View Order</span>
-                </div>
-                <span className="text-lg">₹{total.toFixed(2)}</span>
-            </button>
-        </div>
-      )}
 
       {/* Modals */}
       <SaveTicketModal isOpen={isSaveModalOpen} onClose={() => { setIsSaveModalOpen(false); setPendingPrintAction(false); }} onSave={handleSaveTicketComplete} editingTicket={editingTicket} />
