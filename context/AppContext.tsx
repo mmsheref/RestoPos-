@@ -311,6 +311,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     catch (e) { console.error("Failed to save receipt", e); alert("Saved locally. Sync failed (Offline).");}
   }, [getUid]);
 
+  const deleteReceipt = useCallback(async (id: string) => {
+    // Optimistic update
+    setReceiptsState(prev => prev.filter(r => r.id !== id));
+    try {
+        await deleteDoc(doc(db, 'users', getUid(), 'receipts', id));
+    } catch (e) {
+        console.error("Failed to delete receipt", e);
+        // We could revert state here if critical, but for now we assume eventual consistency or retry
+        alert("Failed to delete receipt from server. It may reappear on refresh.");
+    }
+  }, [getUid]);
+
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem('theme', newTheme);
@@ -663,7 +675,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       settings, updateSettings,
       printers, addPrinter, removePrinter,
       paymentTypes, addPaymentType, updatePaymentType, removePaymentType,
-      receipts, addReceipt, loadMoreReceipts, hasMoreReceipts,
+      receipts, addReceipt, loadMoreReceipts, hasMoreReceipts, deleteReceipt,
       items, addItem, updateItem, deleteItem,
       savedTickets, saveTicket, removeTicket, mergeTickets,
       customGrids, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
