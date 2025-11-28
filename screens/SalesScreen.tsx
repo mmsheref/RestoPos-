@@ -41,6 +41,9 @@ const SalesScreen: React.FC = () => {
   const location = useLocation();
   const isActive = location.pathname === '/sales';
 
+  // State to force a repaint and fix the visibility glitch
+  const [renderTrigger, setRenderTrigger] = useState(0);
+
   // Main screen view state
   const [salesView, setSalesView] = useState<SalesView>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,6 +83,19 @@ const SalesScreen: React.FC = () => {
   }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
   
   const [isTicketVisible, setIsTicketVisible] = useState(false);
+
+  // CRITICAL FIX: Force repaint on visibility change to fix browser rendering glitch
+  useEffect(() => {
+    if (isActive) {
+        // This timeout gives the browser a moment to process the CSS 'display' change
+        // before we "nudge" React to force a repaint.
+        const timer = setTimeout(() => {
+            setRenderTrigger(c => c + 1); 
+        }, 50); 
+
+        return () => clearTimeout(timer);
+    }
+  }, [isActive]);
   
   // Update header title only when active
   useEffect(() => {
