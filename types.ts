@@ -66,6 +66,7 @@ export interface SavedTicket {
   id: string;
   name: string;
   items: OrderItem[];
+  lastModified?: number;
 }
 
 /**

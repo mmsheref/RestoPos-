@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { OrderItem, PaymentType } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { printReceipt } from '../../utils/printerHelper';
-import { UserIcon, ArrowLeftIcon, SplitIcon, CheckIcon, PrintIcon, MailIcon, AnimatedCheckIcon, PaymentMethodIcon } from '../../constants';
+import { UserIcon, ArrowLeftIcon, SplitIcon, CheckIcon, PrintIcon, MailIcon, AnimatedCheckIcon, PaymentMethodIcon, ItemsIcon } from '../../constants';
 
 // --- Sub-components to prevent re-rendering ---
 
@@ -15,31 +15,80 @@ interface StaticTicketPanelProps {
   total: number;
 }
 
-const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, settings, subtotal, tax, total }) => (
-    <div className="w-full md:w-[35%] bg-surface border-r border-border flex flex-col h-full">
-        <header className="flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border">
-            <h2 className="text-xl font-semibold text-text-primary">Ticket</h2>
-            <UserIcon className="h-6 w-6 text-text-muted" />
-        </header>
-        <div className="flex-1 overflow-y-auto p-4">
-            <ul className="space-y-2 mb-6">
-            {orderItems.map(item => (
-                <li key={item.id} className="flex justify-between items-center text-sm">
-                <span className="text-text-secondary">{item.name} x {item.quantity}</span>
-                <span className="font-mono text-text-primary">{(item.price * item.quantity).toFixed(2)}</span>
-                </li>
-            ))}
-            </ul>
-            <div className="pt-4 border-t border-border">
-            <div className="space-y-1 text-sm">
-                <div className="flex justify-between text-text-secondary"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
-                {settings.taxEnabled && <div className="flex justify-between text-text-secondary"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>}
-                <div className="flex justify-between font-bold text-lg text-text-primary pt-2 mt-1 border-t border-border"><span>Total</span><span>{total.toFixed(2)}</span></div>
-            </div>
+const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, settings, subtotal, tax, total }) => {
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    
+    // Desktop View (Always Visible)
+    const DesktopView = (
+        <div className="hidden md:flex w-[35%] bg-surface border-r border-border flex-col h-full">
+            <header className="flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border">
+                <h2 className="text-xl font-semibold text-text-primary">Order Summary</h2>
+                <span className="bg-surface-muted px-2 py-1 rounded text-sm text-text-secondary">{orderItems.length} Items</span>
+            </header>
+            <div className="flex-1 overflow-y-auto p-4">
+                <ul className="space-y-2 mb-6">
+                {orderItems.map(item => (
+                    <li key={item.id} className="flex justify-between items-center text-sm">
+                        <span className="text-text-secondary truncate pr-2">{item.name} x {item.quantity}</span>
+                        <span className="font-mono text-text-primary whitespace-nowrap">{(item.price * item.quantity).toFixed(2)}</span>
+                    </li>
+                ))}
+                </ul>
+                <div className="pt-4 border-t border-border mt-auto">
+                    <div className="space-y-1 text-sm">
+                        <div className="flex justify-between text-text-secondary"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
+                        {settings.taxEnabled && <div className="flex justify-between text-text-secondary"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>}
+                        <div className="flex justify-between font-bold text-lg text-text-primary pt-2 mt-1 border-t border-border"><span>Total</span><span>{total.toFixed(2)}</span></div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+
+    // Mobile View (Collapsible)
+    const MobileView = (
+        <div className="md:hidden w-full bg-surface border-b border-border">
+            <button 
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                className="w-full p-4 flex justify-between items-center active:bg-surface-muted"
+            >
+                <div className="flex items-center gap-2">
+                    <ItemsIcon className="h-5 w-5 text-text-muted" />
+                    <span className="font-semibold text-text-primary">Order Summary</span>
+                    <span className="text-xs bg-surface-muted px-2 py-0.5 rounded-full text-text-secondary">{orderItems.length}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="font-bold text-primary">₹{total.toFixed(2)}</span>
+                    <span className={`text-text-muted transform transition-transform ${isCollapsed ? 'rotate-180' : ''}`}>▼</span>
+                </div>
+            </button>
+            
+            {!isCollapsed && (
+                <div className="px-4 pb-4 animate-fadeIn">
+                     <ul className="space-y-2 mb-4 border-t border-border pt-2 max-h-40 overflow-y-auto">
+                        {orderItems.map(item => (
+                            <li key={item.id} className="flex justify-between items-center text-sm">
+                                <span className="text-text-secondary truncate pr-4">{item.quantity} x {item.name}</span>
+                                <span className="font-mono text-text-primary">{(item.price * item.quantity).toFixed(2)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="flex justify-between text-xs text-text-muted">
+                        <span>Subtotal: {subtotal.toFixed(2)}</span>
+                        <span>Tax: {tax.toFixed(2)}</span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <>
+            {DesktopView}
+            {MobileView}
+        </>
+    );
+};
 
 
 interface PaymentWorkspaceProps {
@@ -62,57 +111,88 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
     inputRef, cashTendered, handleFocus, handleCashChange, handleProcessCashPayment, handleProcessOtherPayment,
     uniqueQuickCash, onProcessPayment
 }) => (
-    <>
-      <header className="flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border bg-surface">
+    <div className="flex-1 flex flex-col h-full bg-background">
+      <header className="flex-shrink-0 h-16 flex items-center justify-between px-4 bg-surface border-b border-border md:hidden">
         <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold">
           <ArrowLeftIcon className="h-5 w-5" />
           Back
         </button>
-        <button 
-          onClick={() => alert("Split payment functionality is coming in a future update!")}
-          className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold border border-border px-3 py-1.5 rounded-lg active:bg-surface-muted"
-        >
-          <SplitIcon className="h-5 w-5" />
-          Split
+        <span className="font-bold text-lg">Checkout</span>
+        <div className="w-8"></div> {/* Spacer */}
+      </header>
+      
+      {/* Desktop Header */}
+      <header className="hidden md:flex flex-shrink-0 h-16 items-center justify-between px-4 border-b border-border bg-surface">
+        <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold">
+          <ArrowLeftIcon className="h-5 w-5" />
+          Back to Sales
         </button>
       </header>
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
-        <h1 className="text-7xl font-bold font-mono text-text-primary mb-8">{total.toFixed(2)}</h1>
-        <div className="w-full max-w-md space-y-4">
-          {otherPaymentTypes.map(pt => (
-            <button 
-              key={pt.id} 
-              onClick={() => handleProcessOtherPayment(pt.name)} 
-              className="w-full p-4 bg-primary text-primary-content font-bold rounded-lg shadow-md text-lg hover:bg-primary-hover transition-colors flex items-center justify-center gap-3"
-            >
-              <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6"/>
-              <span>{pt.name}</span>
-            </button>
-          ))}
+
+      <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col items-center">
+        {/* Total Display */}
+        <div className="mb-8 text-center">
+            <p className="text-sm text-text-muted uppercase tracking-wider mb-1">Total Amount</p>
+            <h1 className="text-5xl md:text-7xl font-bold font-mono text-text-primary">₹{total.toFixed(2)}</h1>
+        </div>
+
+        <div className="w-full max-w-lg space-y-4">
+          {/* Quick Actions Grid */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            {otherPaymentTypes.map(pt => (
+                <button 
+                key={pt.id} 
+                onClick={() => handleProcessOtherPayment(pt.name)} 
+                className="p-4 bg-primary text-primary-content font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-primary-hover transition-all flex flex-col items-center justify-center gap-2 active:scale-95"
+                >
+                <PaymentMethodIcon iconName={pt.icon} className="h-8 w-8"/>
+                <span>{pt.name}</span>
+                </button>
+            ))}
+          </div>
           
+          {/* Cash Section */}
           {cashPaymentType && (
-            <div className="flex items-center gap-2 pt-2">
-              <div className="relative flex-grow">
-                  <input ref={inputRef} type="text" inputMode="decimal" value={cashTendered} onFocus={handleFocus} onChange={handleCashChange} onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()} className="w-full p-4 text-lg font-mono bg-surface rounded-lg shadow-md border border-border focus:ring-2 focus:ring-primary" />
-              </div>
-              <button onClick={handleProcessCashPayment} className="p-4 bg-emerald-500 text-white font-bold rounded-lg shadow-md text-lg hover:bg-emerald-600 transition-colors">
-                {cashPaymentType.name}
-              </button>
+            <div className="bg-surface p-4 rounded-xl border border-border shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="relative flex-grow">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-bold">₹</span>
+                        <input 
+                            ref={inputRef} 
+                            type="text" 
+                            inputMode="decimal" 
+                            value={cashTendered} 
+                            onFocus={handleFocus} 
+                            onChange={handleCashChange} 
+                            onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()} 
+                            className="w-full pl-8 pr-4 py-4 text-2xl font-mono font-bold bg-surface-muted rounded-lg border-2 border-transparent focus:border-emerald-500 focus:bg-surface transition-colors" 
+                        />
+                    </div>
+                    <button 
+                        onClick={handleProcessCashPayment} 
+                        className="px-6 py-4 bg-emerald-500 text-white font-bold rounded-lg shadow hover:bg-emerald-600 active:bg-emerald-700 transition-colors"
+                    >
+                        Pay Cash
+                    </button>
+                </div>
+                
+                {/* Quick Cash Suggestions */}
+                <div className="grid grid-cols-3 gap-2">
+                    {uniqueQuickCash.map(amount => (
+                        <button 
+                            key={amount} 
+                            onClick={() => onProcessPayment(cashPaymentType.name, amount)} 
+                            className="py-2 bg-surface-muted text-text-secondary font-semibold rounded-lg hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-300 border border-transparent hover:border-emerald-200 transition-colors"
+                        >
+                            ₹{amount}
+                        </button>
+                    ))}
+                </div>
             </div>
           )}
         </div>
-        
-        {cashPaymentType && (
-            <div className="grid grid-cols-3 gap-3 mt-6 w-full max-w-md">
-                {uniqueQuickCash.map(amount => (
-                    <button key={amount} onClick={() => onProcessPayment(cashPaymentType.name, amount)} className="px-2 py-3 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors border border-border">
-                        {amount.toFixed(0)}
-                    </button>
-                ))}
-            </div>
-        )}
       </div>
-    </>
+    </div>
 );
 
 
@@ -128,25 +208,39 @@ const ChangeWorkspace: React.FC<ChangeWorkspaceProps> = ({ paymentResult, total,
     const change = paymentResult.change || 0;
     const amountTendered = total + change;
     return (
-        <div className="flex-1 flex flex-col justify-center items-center p-4 sm:p-6 bg-background">
-            <div className="w-full max-w-sm bg-surface rounded-xl shadow-2xl p-6 text-center animate-fadeIn">
-                <AnimatedCheckIcon className="h-16 w-16 mx-auto mb-2" />
-                <h2 className="text-2xl font-bold text-text-primary">Transaction Complete</h2>
-                <div className="my-6 space-y-2 text-sm">
-                    <div className="flex justify-between text-text-secondary"><span>Total:</span><span className="font-mono font-medium text-text-primary">{total.toFixed(2)}</span></div>
-                    <div className="flex justify-between text-text-secondary"><span>{paymentResult.method === 'Cash' ? 'Tendered:' : 'Paid:'}</span><span className="font-mono font-medium text-text-primary">{amountTendered.toFixed(2)}</span></div>
+        <div className="flex-1 flex flex-col justify-center items-center p-6 bg-background">
+            <div className="w-full max-w-sm bg-surface rounded-2xl shadow-xl p-8 text-center animate-fadeIn border border-border">
+                <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <AnimatedCheckIcon className="h-12 w-12 text-green-600 dark:text-green-400" />
                 </div>
-                {paymentResult.method === 'Cash' && change > 0 && (
-                    <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-lg p-4">
-                        <label className="text-sm font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Change</label>
-                        <p className="text-4xl sm:text-5xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1 break-all">{change.toFixed(2)}</p>
+                
+                <h2 className="text-2xl font-bold text-text-primary mb-1">Payment Successful</h2>
+                <p className="text-text-muted text-sm mb-6">Receipt #{paymentResult.receiptId.slice(-4)}</p>
+                
+                <div className="bg-surface-muted rounded-xl p-4 mb-6 space-y-3">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-text-secondary">Total Amount</span>
+                        <span className="font-bold text-text-primary">₹{total.toFixed(2)}</span>
                     </div>
-                )}
-                <div className="mt-8 space-y-3">
-                    <button onClick={handlePrintReceipt} disabled={isPrinting} className="w-full flex items-center justify-center gap-2 p-3 border-2 border-border text-text-primary font-bold rounded-lg hover:bg-surface-muted transition-colors disabled:opacity-50">
+                    <div className="flex justify-between text-sm">
+                        <span className="text-text-secondary">{paymentResult.method === 'Cash' ? 'Cash Tendered' : 'Paid Via'}</span>
+                        <span className="font-bold text-text-primary">{paymentResult.method === 'Cash' ? `₹${amountTendered.toFixed(2)}` : paymentResult.method}</span>
+                    </div>
+                    {paymentResult.method === 'Cash' && change > 0 && (
+                        <div className="border-t border-border pt-3 mt-3">
+                            <div className="flex justify-between items-center">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Change Due</span>
+                                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">₹{change.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-3">
+                    <button onClick={handlePrintReceipt} disabled={isPrinting} className="w-full flex items-center justify-center gap-2 p-3 border-2 border-border text-text-primary font-bold rounded-xl hover:bg-surface-muted transition-colors disabled:opacity-50">
                         <PrintIcon className="h-5 w-5" /> {isPrinting ? 'Printing...' : 'Print Receipt'}
                     </button>
-                    <button onClick={onNewSale} className="w-full flex items-center justify-center gap-2 p-4 bg-emerald-500 text-white font-bold text-lg rounded-lg hover:bg-emerald-600 shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98]">
+                    <button onClick={onNewSale} className="w-full flex items-center justify-center gap-2 p-4 bg-primary text-primary-content font-bold text-lg rounded-xl hover:bg-primary-hover shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98]">
                         <CheckIcon className="h-6 w-6" /> New Sale
                     </button>
                 </div>
@@ -201,20 +295,15 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
     
     // Add logical next denominations
     suggestions.add(Math.ceil(total / 10) * 10);
-    suggestions.add(Math.ceil(total / 20) * 20);
     suggestions.add(Math.ceil(total / 50) * 50);
     suggestions.add(Math.ceil(total / 100) * 100);
     suggestions.add(Math.ceil(total / 500) * 500);
-    suggestions.add(Math.ceil(total / 1000) * 1000);
 
     // Filter out values smaller than total and sort
     const validSuggestions = Array.from(suggestions)
         .filter(amount => amount >= total)
         .sort((a, b) => a - b);
     
-    // If exact amount isn't in top 3 suggestions (e.g. 123 vs 130), stick it in if logic permits, 
-    // but requested feature was "smart suggestions", typically meaning easy-change notes.
-    // We'll take top 6 valid options.
     return validSuggestions.slice(0, 6);
   }, [total]);
     
@@ -255,15 +344,18 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
   };
   
   return (
-    <div className="flex flex-col md:flex-row w-full h-full bg-background">
-      <StaticTicketPanel 
-        orderItems={orderItems} 
-        settings={settings}
-        subtotal={subtotal}
-        tax={tax}
-        total={total}
-      />
-      <div className="w-full md:w-[65%] flex flex-col h-full">
+    <div className="flex flex-col md:flex-row w-full h-full bg-background overflow-hidden">
+      {!paymentResult && (
+          <StaticTicketPanel 
+            orderItems={orderItems} 
+            settings={settings}
+            subtotal={subtotal}
+            tax={tax}
+            total={total}
+          />
+      )}
+      
+      <div className="flex-1 flex flex-col h-full min-w-0">
         {paymentResult ? (
           <ChangeWorkspace 
             paymentResult={paymentResult}
