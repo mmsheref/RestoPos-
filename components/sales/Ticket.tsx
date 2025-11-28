@@ -45,11 +45,9 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
         const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
         const diff = clientX - startX.current;
         
-        // Calculate new offset (clamped)
-        // We only allow swiping left (negative offset) up to -100px
         let newOffset = currentOffset.current + diff;
-        if (newOffset > 0) newOffset = 0; // Can't swipe right past 0
-        if (newOffset < -100) newOffset = -100; // Max swipe width
+        if (newOffset > 0) newOffset = 0; 
+        if (newOffset < -100) newOffset = -100; 
 
         setOffset(newOffset);
     };
@@ -64,7 +62,6 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
         }
     };
 
-    // Close on click if open
     const handleContentClick = () => {
         if (isOpen) setOffset(0);
     };
@@ -95,18 +92,17 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 onMouseLeave={handleTouchEnd}
                 onClick={handleContentClick}
             >
-                {/* Item Details - Increased padding to make swipe easier */}
+                {/* Item Details */}
                 <div className="flex-grow min-w-0 pr-4 pointer-events-none">
-                    <p className="font-semibold text-text-primary truncate">{item.name}</p>
-                    <p className="text-text-secondary text-xs">{item.price.toFixed(2)}</p>
+                    <p className="font-semibold text-text-primary truncate text-base">{item.name}</p>
+                    <p className="text-text-secondary text-sm">{item.price.toFixed(2)}</p>
                 </div>
 
-                {/* Quantity Controls - Stop Propagation to prevent swipe when clicking buttons */}
-                {/* Smaller buttons (h-7 w-7) for better spacing */}
+                {/* Quantity Controls */}
                 <div className="flex items-center justify-center gap-3 mx-2" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                     <button 
                         onClick={() => onDecrement(item.lineItemId)} 
-                        className="h-7 w-7 flex items-center justify-center bg-surface-muted text-base rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation border border-border" 
                         aria-label="Decrease quantity"
                     >
                         -
@@ -119,14 +115,14 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                             onChange={onQuantityChange} 
                             onBlur={onQuantityCommit} 
                             onKeyDown={onQuantityKeyDown} 
-                            className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary p-0.5" 
+                            className="font-mono w-10 text-center text-lg text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary p-0.5" 
                             autoFocus 
                             onFocus={(e) => e.target.select()} 
                         />
                     ) : (
                         <span 
                             onClick={() => onQuantityClick(item)} 
-                            className="font-mono min-w-[24px] text-center text-base font-semibold text-text-primary cursor-pointer active:scale-95 transition-transform py-1 px-1 rounded hover:bg-surface-muted"
+                            className="font-mono min-w-[24px] text-center text-lg font-semibold text-text-primary cursor-pointer active:scale-95 transition-transform py-1 px-1 rounded hover:bg-surface-muted"
                         >
                             {item.quantity}
                         </span>
@@ -134,7 +130,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                     
                     <button 
                         onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
-                        className="h-7 w-7 flex items-center justify-center bg-surface-muted text-base rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation border border-border" 
                         aria-label="Increase quantity"
                     >
                         +
@@ -143,11 +139,10 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
                 {/* Total Price */}
                 <div className="w-16 text-right pointer-events-none">
-                    <p className="font-bold text-text-primary">{(item.price * item.quantity).toFixed(2)}</p>
+                    <p className="font-bold text-text-primary text-base">{(item.price * item.quantity).toFixed(2)}</p>
                 </div>
             </div>
             
-            {/* Visual indicator for "Swipe left" if not swiped */}
             {!isOpen && !isSwiping && (
                 <div className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-l from-black/5 to-transparent pointer-events-none md:hidden"></div>
             )}
@@ -169,7 +164,7 @@ interface TicketProps {
     tax: number;
     printers: any[];
 
-    // State & Handlers for Quantity
+    // State & Handlers
     editingQuantityItemId: string | null;
     tempQuantity: string;
     setEditingQuantityItemId: (id: string | null) => void;
@@ -188,7 +183,7 @@ interface TicketProps {
     onOpenTickets: () => void;
     onSaveTicket: () => void;
     onClearTicket: () => void;
-    onPrintRequest: () => void; // Added Prop for print workflow
+    onPrintRequest: () => void;
 }
 
 const Ticket: React.FC<TicketProps> = (props) => {
@@ -247,8 +242,6 @@ const Ticket: React.FC<TicketProps> = (props) => {
            alert("Ticket is empty. Nothing to print.");
            return;
         }
-        // Instead of printing directly, we now request a print from the parent component
-        // This allows the parent to enforce "Save before Print" logic.
         onPrintRequest();
         break;
 
@@ -260,7 +253,6 @@ const Ticket: React.FC<TicketProps> = (props) => {
         onSaveTicket();
         break;
       default:
-        alert(`Feature '${action}' is coming soon!`);
         break;
     }
   };
@@ -308,11 +300,11 @@ const Ticket: React.FC<TicketProps> = (props) => {
   }, [editingTicket, currentOrder.length]);
 
   return (
-    <section className={`${className} bg-surface border-l border-border h-full`}>
+    <section className={`${className} bg-surface border-l border-border h-full flex flex-col`}>
       <header className="bg-surface shadow-sm w-full z-30 flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border">
         <div className="flex items-center gap-2">
             {onClose && (
-                <button onClick={onClose} className="md:hidden p-2 -ml-2 text-text-secondary">
+                <button onClick={onClose} className="md:hidden p-2 -ml-2 text-text-secondary active:text-text-primary">
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
             )}
@@ -320,18 +312,18 @@ const Ticket: React.FC<TicketProps> = (props) => {
         </div>
         <div className="relative" ref={ticketMenuRef}>
             <button onClick={() => setTicketMenuOpen(prev => !prev)} className="p-2 text-text-secondary hover:text-text-primary" aria-label="Ticket options">
-              <ThreeDotsIcon className="h-5 w-5" />
+              <ThreeDotsIcon className="h-6 w-6" />
             </button>
             {isTicketMenuOpen && (
                 <div
                     className="absolute right-0 mt-2 w-56 bg-surface rounded-md shadow-lg ring-1 ring-black ring-opacity-5 dark:ring-white/10 z-20"
                 >
                     <div className="py-1">
-                        <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">Clear Ticket</button>
-                        <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">
+                        <button onClick={() => handleTicketAction('clear')} className="w-full text-left px-4 py-3 text-base text-text-primary hover:bg-surface-muted">Clear Ticket</button>
+                        <button onClick={() => handleTicketAction('print')} className="w-full text-left px-4 py-3 text-base text-text-primary hover:bg-surface-muted">
                           Print Bill
                         </button>
-                        <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-surface-muted">Edit Ticket Details</button>
+                        <button onClick={() => handleTicketAction('edit')} className="w-full text-left px-4 py-3 text-base text-text-primary hover:bg-surface-muted">Edit Details</button>
                     </div>
                 </div>
             )}
@@ -339,7 +331,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       </header>
       
       {/* Scrollable Area: Items + Sticky Totals */}
-      <div ref={listContainerRef} className="flex-1 overflow-y-auto flex flex-col relative">
+      <div ref={listContainerRef} className="flex-1 overflow-y-auto flex flex-col relative pb-4">
           {isClearConfirmVisible ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <TrashIcon className="h-12 w-12 text-red-400 mb-4" />
@@ -361,7 +353,6 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </div>
           ) : (
             <>
-                {/* List Items */}
                 <div className="pb-2">
                     <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
@@ -382,7 +373,6 @@ const Ticket: React.FC<TicketProps> = (props) => {
                     </ul>
                 </div>
 
-                {/* Sticky Totals Section */}
                 <div className="sticky bottom-0 bg-surface/95 backdrop-blur-sm border-t border-border p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
                     <div className="space-y-2 text-sm">
                         {settings.taxEnabled && (
@@ -401,7 +391,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       </div>
 
       {/* Action Buttons Footer - Always Fixed */}
-      <div className="p-4 border-t border-border bg-surface z-20">
+      <div className="p-4 border-t border-border bg-surface z-20 pb-safe">
           <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
             <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 active:scale-[0.98] disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center">
