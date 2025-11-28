@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import type { Item } from '../types';
 import { useAppContext } from '../context/AppContext';
 import ItemFormModal from '../components/modals/ItemFormModal';
-import { SearchIcon, TrashIcon, CloseIcon, PencilIcon } from '../constants';
+import { SearchIcon, TrashIcon, CloseIcon, PencilIcon, MenuIcon } from '../constants';
 import ConfirmCsvImportModal from '../components/modals/ConfirmCsvImportModal';
 import { parseCsvToItems } from '../utils/csvHelper';
 import ConfirmModal from '../components/modals/ConfirmModal';
@@ -110,7 +110,7 @@ const ItemRow = React.memo<ItemRowProps>(({ item, onEdit, onDelete }) => {
 });
 
 const ItemsScreen: React.FC = () => {
-  const { items, addItem, updateItem, deleteItem, exportItemsCsv, replaceItems } = useAppContext();
+  const { items, addItem, updateItem, deleteItem, exportItemsCsv, replaceItems, openDrawer } = useAppContext();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | undefined>(undefined);
@@ -241,7 +241,13 @@ const ItemsScreen: React.FC = () => {
   return (
     <div className="p-4 md:p-6 bg-background h-full flex flex-col min-h-0">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 flex-shrink-0">
-        <h1 className="text-2xl md:text-3xl font-bold text-text-primary self-start md:self-center">Menu Items</h1>
+        <div className="flex items-center self-start md:self-center w-full md:w-auto">
+            <button onClick={openDrawer} className="p-2 -ml-2 mr-2 text-text-secondary hover:text-text-primary">
+                <MenuIcon className="h-6 w-6" />
+            </button>
+            <h1 className="text-2xl md:text-3xl font-bold text-text-primary">Menu Items</h1>
+        </div>
+        
         <div className="flex w-full md:w-auto items-center gap-2">
             <div className="relative flex-grow md:flex-grow-0">
                 <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted h-5 w-5" />
