@@ -280,7 +280,7 @@ const SalesScreen: React.FC = () => {
       <div className={`w-full md:w-[70%] flex-col ${isTicketVisible ? 'hidden md:flex' : 'flex'}`}>
         <SalesHeader openDrawer={openDrawer} onSearchChange={setSearchQuery} searchQuery={searchQuery} />
         <div className="flex-1 flex flex-col p-3 md:p-4 overflow-hidden">
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2 content-visibility-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto pr-2">
             {items.length === 0 && !debouncedSearchQuery.trim() ? (
               <div className="flex flex-col items-center justify-center h-full text-center text-text-secondary p-4">
                 <div className="max-w-md">
