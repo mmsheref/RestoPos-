@@ -46,7 +46,7 @@ const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, setti
                             <div className="flex justify-between text-text-secondary"><span>GST ({settings.taxRate}%)</span><span>{tax.toFixed(2)}</span></div>
                         </>
                     )}
-                    <div className="flex justify-between font-bold text-xl text-text-primary pt-3 mt-1 border-t border-border"><span>Total</span><span>{total.toFixed(2)}</span></div>
+                    <div className={`flex justify-between font-bold text-xl text-text-primary ${settings.taxEnabled ? 'pt-3 mt-1 border-t border-border' : ''}`}><span>Total</span><span>{total.toFixed(2)}</span></div>
                 </div>
             </div>
         </div>
@@ -159,14 +159,14 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                 {/* Other Methods Grid */}
                 <div>
                      <label className="block text-sm font-bold text-text-secondary mb-3 px-1">Payment Methods</label>
-                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                     <div className="grid grid-cols-1 gap-4">
                         {otherPaymentTypes.map(pt => (
                             <button 
                             key={pt.id} 
                             onClick={() => handleProcessOtherPayment(pt.name)} 
-                            className="bg-surface border border-border text-text-primary font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-surface-muted hover:border-primary/50 transition-all flex items-center justify-center gap-2 active:scale-95 py-4 w-full"
+                            className="bg-indigo-600 border border-transparent text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
                             >
-                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-primary"/>
+                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
                             <span>{pt.name}</span>
                             </button>
                         ))}
