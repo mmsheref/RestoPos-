@@ -102,7 +102,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 <div className="flex items-center justify-center gap-3 mx-2" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                     <button 
                         onClick={() => onDecrement(item.lineItemId)} 
-                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        className="h-7 w-7 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation border border-border" 
                         aria-label="Decrease quantity"
                     >
                         -
@@ -130,7 +130,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                     
                     <button 
                         onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
-                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        className="h-7 w-7 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation border border-border" 
                         aria-label="Increase quantity"
                     >
                         +
@@ -300,11 +300,14 @@ const Ticket: React.FC<TicketProps> = (props) => {
   }, [editingTicket, currentOrder.length]);
 
   return (
-    <section className={`${className} bg-surface border-l border-border h-full flex flex-col`}>
+    <section className={`${className} bg-surface border-l border-border h-full flex flex-col pt-safe-top`}>
       <header className="bg-surface shadow-sm w-full z-30 flex-shrink-0 h-16 flex items-center justify-between px-4 border-b border-border">
         <div className="flex items-center gap-2">
             {onClose && (
-                <button onClick={onClose} className="md:hidden p-2 -ml-2 text-text-secondary active:text-text-primary">
+                <button 
+                  onClick={onClose} 
+                  className="md:hidden p-3 -ml-2 text-text-secondary active:text-text-primary rounded-full hover:bg-surface-muted transition-colors"
+                >
                     <ArrowLeftIcon className="h-6 w-6" />
                 </button>
             )}
@@ -391,7 +394,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       </div>
 
       {/* Action Buttons Footer - Always Fixed */}
-      <div className="p-4 border-t border-border bg-surface z-20 pb-safe">
+      <div className="p-4 border-t border-border bg-surface z-20 pb-safe-bottom">
           <div className={`flex items-center gap-4 ${isClearConfirmVisible ? 'opacity-50 pointer-events-none' : ''}`}>
             {renderActionButtons()}
             <button onClick={onCharge} disabled={currentOrder.length === 0} className="w-full bg-emerald-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-emerald-600 active:scale-[0.98] disabled:bg-gray-300 disabled:dark:bg-gray-600 disabled:dark:text-gray-400 disabled:cursor-not-allowed disabled:shadow-none flex justify-center items-center">

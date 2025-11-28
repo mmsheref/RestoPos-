@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, CalendarIcon, DownloadIcon, TableIcon, CloseIcon } from '../constants';
@@ -493,16 +492,18 @@ const ReportsScreen: React.FC = () => {
                             </thead>
                             <tbody className="bg-surface divide-y divide-border">
                                 {Object.entries(metrics.salesByCategory)
-                                    .sort(([, a], [, b]) => b - a)
-                                    .map(([category, revenue]) => (
-                                    <tr key={category} className="hover:bg-surface-muted/50 transition-colors">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{category}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-bold text-right">₹{revenue.toFixed(2)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary text-right">
-                                            {((revenue / metrics.totalSales) * 100).toFixed(1)}%
-                                        </td>
-                                    </tr>
-                                ))}
+                                    .sort(([, a], [, b]) => (b as number) - (a as number))
+                                    .map(([category, revenue]) => {
+                                        const r = revenue as number;
+                                        return (
+                                        <tr key={category} className="hover:bg-surface-muted/50 transition-colors">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{category}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary font-bold text-right">₹{r.toFixed(2)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary text-right">
+                                                {((r / metrics.totalSales) * 100).toFixed(1)}%
+                                            </td>
+                                        </tr>
+                                    )})}
                                 {Object.keys(metrics.salesByCategory).length === 0 && (
                                     <tr><td colSpan={3} className="px-6 py-8 text-center text-text-muted">No sales data.</td></tr>
                                 )}
