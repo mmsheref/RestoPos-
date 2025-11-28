@@ -95,17 +95,18 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 onMouseLeave={handleTouchEnd}
                 onClick={handleContentClick}
             >
-                {/* Item Details */}
-                <div className="flex-grow min-w-0 pr-2 pointer-events-none">
+                {/* Item Details - Increased padding to make swipe easier */}
+                <div className="flex-grow min-w-0 pr-4 pointer-events-none">
                     <p className="font-semibold text-text-primary truncate">{item.name}</p>
                     <p className="text-text-secondary text-xs">{item.price.toFixed(2)}</p>
                 </div>
 
                 {/* Quantity Controls - Stop Propagation to prevent swipe when clicking buttons */}
+                {/* Smaller buttons (h-7 w-7) for better spacing */}
                 <div className="flex items-center justify-center gap-3 mx-2" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                     <button 
                         onClick={() => onDecrement(item.lineItemId)} 
-                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        className="h-7 w-7 flex items-center justify-center bg-surface-muted text-base rounded-full text-text-secondary active:bg-red-200 dark:active:bg-red-500/50 active:text-red-700 transition-colors focus:outline-none touch-manipulation border border-border" 
                         aria-label="Decrease quantity"
                     >
                         -
@@ -118,14 +119,14 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                             onChange={onQuantityChange} 
                             onBlur={onQuantityCommit} 
                             onKeyDown={onQuantityKeyDown} 
-                            className="font-mono w-12 text-center text-lg text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary p-1" 
+                            className="font-mono w-10 text-center text-base text-text-primary bg-background border border-primary rounded-md ring-1 ring-primary p-0.5" 
                             autoFocus 
                             onFocus={(e) => e.target.select()} 
                         />
                     ) : (
                         <span 
                             onClick={() => onQuantityClick(item)} 
-                            className="font-mono w-8 text-center text-lg text-text-primary cursor-pointer active:scale-95 transition-transform"
+                            className="font-mono min-w-[24px] text-center text-base font-semibold text-text-primary cursor-pointer active:scale-95 transition-transform py-1 px-1 rounded hover:bg-surface-muted"
                         >
                             {item.quantity}
                         </span>
@@ -133,7 +134,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                     
                     <button 
                         onClick={() => onIncrement(item.lineItemId, item.quantity + 1)} 
-                        className="h-8 w-8 flex items-center justify-center bg-surface-muted text-lg rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation border border-border" 
+                        className="h-7 w-7 flex items-center justify-center bg-surface-muted text-base rounded-full text-text-secondary active:bg-green-200 dark:active:bg-green-500/50 active:text-green-700 transition-colors focus:outline-none touch-manipulation border border-border" 
                         aria-label="Increase quantity"
                     >
                         +

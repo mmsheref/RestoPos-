@@ -89,15 +89,14 @@ const SalesScreen: React.FC = () => {
   const [isTicketVisible, setIsTicketVisible] = useState(false);
 
   // CRITICAL FIX: Force repaint on visibility change to fix browser rendering glitch
+  // Using requestAnimationFrame ensures we wait for the browser paint cycle
   useEffect(() => {
     if (isActive) {
-        // This timeout gives the browser a moment to process the CSS 'display' change
-        // before we "nudge" React to force a repaint.
-        const timer = setTimeout(() => {
-            setRenderTrigger(c => c + 1); 
-        }, 50); 
-
-        return () => clearTimeout(timer);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                setRenderTrigger(c => c + 1);
+            });
+        });
     }
   }, [isActive]);
   

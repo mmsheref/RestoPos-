@@ -209,6 +209,10 @@ export interface AppContextType {
   clearOrder: () => void;
   loadOrder: (items: OrderItem[]) => void;
   // --- END: Global Ticket State ---
+  
+  // Reports Security
+  isReportsUnlocked: boolean;
+  setReportsUnlocked: (unlocked: boolean) => void;
 
   // Backup
   exportData: () => void;

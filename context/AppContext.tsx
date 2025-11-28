@@ -51,6 +51,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [showOnboarding, setShowOnboarding] = useState(() => {
     return !localStorage.getItem(ONBOARDING_COMPLETED_KEY);
   });
+  
+  // Reports persistent unlock state (session only)
+  const [isReportsUnlocked, setReportsUnlocked] = useState(false);
 
   const completeOnboarding = useCallback(async (): Promise<boolean> => {
     if (Capacitor.isNativePlatform()) {
@@ -665,7 +668,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       tables, addTable, updateTable, setTables, removeTable,
       activeGridId, setActiveGridId,
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
-      exportData, restoreData, exportItemsCsv, replaceItems
+      exportData, restoreData, exportItemsCsv, replaceItems,
+      isReportsUnlocked, setReportsUnlocked
   };
 
   return (
