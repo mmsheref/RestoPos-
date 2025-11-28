@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { OrderItem, SavedTicket } from '../../types';
 import { ThreeDotsIcon, TrashIcon, ArrowLeftIcon } from '../../constants';
 import { useAppContext } from '../../context/AppContext';
@@ -202,6 +202,19 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const listContainerRef = useRef<HTMLDivElement>(null);
   const prevOrderLength = useRef(currentOrder.length);
 
+  // FIX: Force a layout recalculation on mount to prevent the "invisible list" glitch on mobile.
+  useLayoutEffect(() => {
+    if (listContainerRef.current) {
+        const el = listContainerRef.current;
+        // Toggling display forces the browser to rebuild the layout tree for this element
+        const originalDisplay = el.style.display;
+        el.style.display = 'none';
+        // Reading offsetHeight forces a synchronous reflow
+        void el.offsetHeight;
+        el.style.display = originalDisplay;
+    }
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
         if (ticketMenuRef.current && !ticketMenuRef.current.contains(event.target as Node)) {
@@ -277,7 +290,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       return (
         <button 
           onClick={onOpenTickets}
-          className="w-full bg-amber-500 text-white font-bold py-4 rounded-lg transition-colors text-lg shadow-md hover:bg-amber-600 active:scale-[0.98] whitespace-nowrap"
+          className="w-full bg-amber-500 text-white font-bold py-3 rounded-lg transition-colors text-base shadow-md hover:bg-amber-600 active:scale-[0.98] whitespace-nowrap"
         >
           Open Tickets ({savedTickets.length})
         </button>
@@ -336,7 +349,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
       {/* Scrollable Area: Items + Sticky Totals */}
       <div 
         ref={listContainerRef} 
-        className="flex-1 overflow-y-auto flex flex-col relative pb-4"
+        className="flex-1 overflow-y-auto flex flex-col relative pb-4 min-h-0"
         style={{ 
             WebkitOverflowScrolling: 'touch',
             transform: 'translateZ(0)' // Fix for painting glitches on iOS/Mobile when toggling display

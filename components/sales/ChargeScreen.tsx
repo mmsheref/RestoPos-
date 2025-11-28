@@ -164,7 +164,7 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                             <button 
                             key={pt.id} 
                             onClick={() => handleProcessOtherPayment(pt.name)} 
-                            className="bg-indigo-600 border border-transparent text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
+                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
                             >
                             <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
                             <span>{pt.name}</span>
