@@ -150,74 +150,71 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
             </div>
 
             <div className="w-full space-y-6">
-            {/* Quick Actions Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
-                {/* Split Button */}
-                <button 
-                    onClick={() => alert("Split Payment feature coming soon")} 
-                    className="p-4 bg-surface border-2 border-primary/20 text-primary font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-primary/5 hover:border-primary transition-all flex flex-col items-center justify-center gap-2 active:scale-95 aspect-[4/3] md:aspect-auto md:h-28"
-                >
-                    <SplitIcon className="h-8 w-8"/>
-                    <span>Split Bill</span>
-                </button>
-
-                {otherPaymentTypes.map(pt => (
-                    <button 
-                    key={pt.id} 
-                    onClick={() => handleProcessOtherPayment(pt.name)} 
-                    className="p-4 bg-primary text-primary-content font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-primary-hover transition-all flex flex-col items-center justify-center gap-2 active:scale-95 aspect-[4/3] md:aspect-auto md:h-28"
-                    >
-                    <PaymentMethodIcon iconName={pt.icon} className="h-8 w-8"/>
-                    <span>{pt.name}</span>
-                    </button>
-                ))}
-            </div>
-            
-            {/* Cash Section */}
-            {cashPaymentType && (
-                <div className="bg-surface p-6 rounded-2xl border border-border shadow-sm">
-                    <h3 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
-                        <PaymentMethodIcon iconName="cash" className="h-5 w-5 text-emerald-500" />
-                        Cash Payment
-                    </h3>
-                    
-                    <div className="flex flex-col md:flex-row items-stretch gap-4 mb-4">
-                        <div className="relative flex-grow">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xl">₹</span>
-                            <input 
-                                ref={inputRef} 
-                                type="text" 
-                                inputMode="decimal" 
-                                value={cashTendered} 
-                                onFocus={handleFocus} 
-                                onChange={handleCashChange} 
-                                onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()} 
-                                className="w-full pl-10 pr-4 py-4 text-3xl font-mono font-bold bg-surface-muted rounded-xl border-2 border-transparent focus:border-emerald-500 focus:bg-surface focus:ring-0 transition-all text-right" 
-                                placeholder="0.00"
-                            />
-                        </div>
-                        <button 
-                            onClick={handleProcessCashPayment} 
-                            className="px-8 py-4 bg-emerald-500 text-white font-bold text-lg rounded-xl shadow hover:bg-emerald-600 active:bg-emerald-700 transition-colors md:w-auto w-full"
-                        >
-                            Pay Cash
-                        </button>
-                    </div>
-                    
-                    {/* Quick Cash Suggestions */}
-                    <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                        {uniqueQuickCash.map(amount => (
+                {/* Cash Section - Primary */}
+                {cashPaymentType && (
+                    <div className="bg-surface p-6 rounded-2xl border border-border shadow-sm">
+                        <div className="flex flex-col md:flex-row items-stretch gap-4 mb-4">
+                            <div className="relative flex-grow">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xl">₹</span>
+                                <input 
+                                    ref={inputRef} 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    value={cashTendered} 
+                                    onFocus={handleFocus} 
+                                    onChange={handleCashChange} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()} 
+                                    className="w-full pl-10 pr-4 py-4 text-3xl font-mono font-bold bg-surface-muted rounded-xl border-2 border-transparent focus:border-emerald-500 focus:bg-surface focus:ring-0 transition-all text-right" 
+                                    placeholder="0.00"
+                                />
+                            </div>
                             <button 
-                                key={amount} 
-                                onClick={() => onProcessPayment(cashPaymentType.name, amount)} 
-                                className="py-3 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-300 border border-transparent hover:border-emerald-200 transition-colors"
+                                onClick={handleProcessCashPayment} 
+                                className="px-8 py-4 bg-emerald-500 text-white font-bold text-lg rounded-xl shadow hover:bg-emerald-600 active:bg-emerald-700 transition-colors md:w-auto w-full flex-shrink-0"
                             >
-                                ₹{amount}
+                                Pay Cash
+                            </button>
+                        </div>
+                        
+                        {/* Quick Cash Suggestions */}
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar md:grid md:grid-cols-6">
+                            {uniqueQuickCash.map(amount => (
+                                <button 
+                                    key={amount} 
+                                    onClick={() => onProcessPayment(cashPaymentType.name, amount)} 
+                                    className="flex-shrink-0 md:flex-shrink py-3 px-4 md:px-0 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-300 border border-transparent hover:border-emerald-200 transition-colors"
+                                >
+                                    ₹{amount}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Other Methods Grid */}
+                <div>
+                     <label className="block text-sm font-bold text-text-secondary mb-3 px-1">Other Payment Methods</label>
+                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {otherPaymentTypes.map(pt => (
+                            <button 
+                            key={pt.id} 
+                            onClick={() => handleProcessOtherPayment(pt.name)} 
+                            className="aspect-[4/3] bg-surface border border-border text-text-primary font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-surface-muted hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 active:scale-95"
+                            >
+                            <PaymentMethodIcon iconName={pt.icon} className="h-8 w-8 text-primary"/>
+                            <span>{pt.name}</span>
                             </button>
                         ))}
+                        {/* Split Button */}
+                        <button 
+                            onClick={() => alert("Split Payment feature coming soon")} 
+                            className="aspect-[4/3] bg-surface border border-border text-text-primary font-bold rounded-xl shadow-sm hover:shadow-md hover:bg-surface-muted hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 active:scale-95"
+                        >
+                            <SplitIcon className="h-8 w-8 text-primary"/>
+                            <span>Split</span>
+                        </button>
                     </div>
                 </div>
-            )}
             </div>
         </div>
       </div>
