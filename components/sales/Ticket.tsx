@@ -67,7 +67,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
     };
 
     return (
-        <li className="relative border-b border-border overflow-hidden h-[72px] select-none">
+        <li className="relative border-b border-border overflow-hidden h-[72px] select-none transform translate-z-0">
             {/* Background Action Layer (Delete) */}
             <div className="absolute inset-0 flex justify-end bg-red-600">
                 <button
@@ -200,20 +200,35 @@ const Ticket: React.FC<TicketProps> = (props) => {
   const [isClearConfirmVisible, setIsClearConfirmVisible] = useState(false);
   const ticketMenuRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
-  const prevOrderLength = useRef(currentOrder.length);
+  
+  // Dummy state to force re-render
+  const [, forceUpdate] = useState(0);
 
-  // FIX: Force a layout recalculation on mount to prevent the "invisible list" glitch on mobile.
+  // FIX: Force a layout recalculation aggressively to fix mobile "invisible list" glitch
   useLayoutEffect(() => {
     if (listContainerRef.current) {
         const el = listContainerRef.current;
-        // Toggling display forces the browser to rebuild the layout tree for this element
-        const originalDisplay = el.style.display;
-        el.style.display = 'none';
-        // Reading offsetHeight forces a synchronous reflow
-        void el.offsetHeight;
-        el.style.display = originalDisplay;
+        requestAnimationFrame(() => {
+            el.style.display = 'none';
+            // Force reflow
+            void el.offsetHeight;
+            el.style.display = 'flex';
+        });
     }
-  }, []);
+    // Also trigger a react re-render shortly after mount to ensure everything settles
+    const timer = setTimeout(() => forceUpdate(n => n + 1), 50);
+    return () => clearTimeout(timer);
+  }, []); // Run once on mount
+
+  // Also trigger when order length changes (item added)
+  useEffect(() => {
+     if (listContainerRef.current) {
+         requestAnimationFrame(() => {
+             listContainerRef.current?.scrollTo({ top: listContainerRef.current.scrollHeight, behavior: 'smooth' });
+         });
+     }
+  }, [currentOrder.length]);
+
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -230,16 +245,6 @@ const Ticket: React.FC<TicketProps> = (props) => {
         setTicketMenuOpen(false);
     }
   }, [isClearConfirmVisible]);
-
-  useEffect(() => {
-    if (listContainerRef.current && currentOrder.length > prevOrderLength.current) {
-        const container = listContainerRef.current;
-        setTimeout(() => {
-            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-        }, 0);
-    }
-    prevOrderLength.current = currentOrder.length;
-  }, [currentOrder]);
 
 
   const handleTicketAction = async (action: string) => {
@@ -352,7 +357,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
         className="flex-1 overflow-y-auto flex flex-col relative pb-4 min-h-0"
         style={{ 
             WebkitOverflowScrolling: 'touch',
-            transform: 'translateZ(0)' // Fix for painting glitches on iOS/Mobile when toggling display
+            transform: 'translateZ(0)', // Fix for painting glitches on iOS/Mobile when toggling display
+            willChange: 'scroll-position'
         }}
       >
           {isClearConfirmVisible ? (
