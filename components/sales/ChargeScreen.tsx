@@ -16,7 +16,7 @@ interface StaticTicketPanelProps {
 }
 
 const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, settings, subtotal, tax, total }) => {
-    const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed on mobile to save space
+    const [isCollapsed, setIsCollapsed] = useState(false);
     
     // Desktop View (Always Visible on Tablet/Desktop)
     const DesktopView = (
@@ -60,33 +60,34 @@ const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, setti
                 className="w-full p-4 flex justify-between items-center active:bg-surface-muted transition-colors"
             >
                 <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 p-2 rounded-lg">
-                        <ItemsIcon className="h-5 w-5 text-primary" />
+                    <div className="bg-primary/10 p-2 rounded-full text-primary">
+                        <ItemsIcon className="h-5 w-5" />
                     </div>
-                    <div className="text-left">
-                        <p className="font-bold text-text-primary text-sm">Order Summary</p>
-                        <p className="text-xs text-text-secondary">{orderItems.length} Items &bull; Total: <span className="font-bold text-text-primary">₹{total.toFixed(2)}</span></p>
+                    <div className="flex flex-col items-start">
+                        <span className="font-semibold text-text-primary text-sm">Order Summary</span>
+                        <span className="text-xs text-text-secondary">{orderItems.length} items</span>
                     </div>
                 </div>
-                <div className={`transform transition-transform duration-200 text-text-muted ${isCollapsed ? '' : 'rotate-180'}`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                <div className="flex items-center gap-3">
+                    <span className="font-bold text-lg text-primary">₹{total.toFixed(2)}</span>
+                    <span className={`text-text-muted transform transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`}>▼</span>
                 </div>
             </button>
             
             {!isCollapsed && (
-                <div className="px-4 pb-4 border-t border-border/50 bg-background/50 max-h-64 overflow-y-auto animate-fadeIn">
-                    <ul className="space-y-3 mt-3">
+                <div className="px-4 pb-4 animate-fadeIn bg-surface-muted/30 border-t border-border">
+                     <ul className="space-y-2 py-3 max-h-48 overflow-y-auto">
                         {orderItems.map(item => (
-                            <li key={item.lineItemId} className="flex justify-between text-sm">
-                                <span>{item.quantity} x {item.name}</span>
-                                <span className="font-mono font-medium">{(item.price * item.quantity).toFixed(2)}</span>
+                            <li key={item.lineItemId} className="flex justify-between items-center text-sm">
+                                <span className="text-text-secondary truncate pr-4"><span className="font-bold text-text-primary">{item.quantity}</span> x {item.name}</span>
+                                <span className="font-mono text-text-primary">{(item.price * item.quantity).toFixed(2)}</span>
                             </li>
                         ))}
                     </ul>
                     {settings.taxEnabled && (
-                        <div className="mt-4 pt-3 border-t border-border space-y-1 text-sm text-text-secondary">
-                            <div className="flex justify-between"><span>Subtotal</span><span>{subtotal.toFixed(2)}</span></div>
-                            <div className="flex justify-between"><span>Tax</span><span>{tax.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-xs text-text-muted border-t border-border pt-2">
+                            <span>Subtotal: {subtotal.toFixed(2)}</span>
+                            <span>Tax: {tax.toFixed(2)}</span>
                         </div>
                     )}
                 </div>
@@ -102,9 +103,215 @@ const StaticTicketPanel: React.FC<StaticTicketPanelProps> = ({ orderItems, setti
     );
 };
 
+
+interface PaymentWorkspaceProps {
+    onBack: () => void;
+    total: number;
+    otherPaymentTypes: PaymentType[];
+    cashPaymentType: PaymentType | undefined;
+    inputRef: React.RefObject<HTMLInputElement>;
+    cashTendered: string;
+    handleFocus: (e: React.FocusEvent<HTMLInputElement>) => void;
+    handleCashChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    handleProcessCashPayment: () => void;
+    handleProcessOtherPayment: (methodName: string) => void;
+    uniqueQuickCash: number[];
+    onProcessPayment: (method: string, tendered: number) => void;
+}
+
+const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
+    onBack, total, otherPaymentTypes, cashPaymentType,
+    inputRef, cashTendered, handleFocus, handleCashChange, handleProcessCashPayment, handleProcessOtherPayment,
+    uniqueQuickCash, onProcessPayment
+}) => (
+    <div className="flex-1 flex flex-col h-full bg-background relative">
+      {/* Mobile Header */}
+      <header className="flex-shrink-0 h-16 flex items-center justify-between px-4 bg-surface border-b border-border md:hidden">
+        <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold">
+          <ArrowLeftIcon className="h-5 w-5" />
+          Back
+        </button>
+        <span className="font-bold text-lg">Checkout</span>
+        <div className="w-8"></div> {/* Spacer */}
+      </header>
+      
+      {/* Desktop Header */}
+      <header className="hidden md:flex flex-shrink-0 h-16 items-center justify-between px-6 border-b border-border bg-surface">
+        <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-muted transition-colors">
+          <ArrowLeftIcon className="h-5 w-5" />
+          Back to Sales
+        </button>
+        <div className="flex items-center gap-2">
+             <UserIcon className="h-5 w-5 text-text-muted" />
+             <span className="text-sm text-text-secondary">Cashier</span>
+        </div>
+      </header>
+
+      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="max-w-3xl mx-auto flex flex-col items-center">
+            {/* Total Display */}
+            <div className="mb-2 text-center py-1">
+                <p className="text-xs text-text-muted uppercase tracking-wider mb-1 font-bold">Total Payable Amount</p>
+                <div className="flex items-baseline justify-center gap-1 text-5xl md:text-7xl font-bold font-mono text-text-primary tracking-tight">
+                    <span className="text-3xl md:text-5xl text-text-muted font-normal">₹</span>
+                    {total.toFixed(2)}
+                </div>
+            </div>
+
+            <div className="w-full space-y-2">
+                {/* Other Methods Grid */}
+                <div>
+                     <label className="block text-sm font-bold text-text-secondary mb-2 px-1">Payment Methods</label>
+                     <div className="grid grid-cols-1 gap-3">
+                        {otherPaymentTypes.map(pt => (
+                            <button 
+                            key={pt.id} 
+                            onClick={() => handleProcessOtherPayment(pt.name)} 
+                            className="bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
+                            >
+                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
+                            <span>{pt.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Cash Section */}
+                {cashPaymentType && (
+                    <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm mt-4">
+                        <label className="block text-sm font-bold text-text-secondary mb-2">Cash Payment</label>
+                        <div className="flex flex-col md:flex-row items-stretch gap-3 mb-3">
+                            <div className="relative flex-grow">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xl">₹</span>
+                                <input 
+                                    ref={inputRef} 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    value={cashTendered} 
+                                    onFocus={handleFocus} 
+                                    onChange={handleCashChange} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleProcessCashPayment()} 
+                                    className="w-full pl-10 pr-4 py-4 text-3xl font-mono font-bold bg-surface-muted rounded-xl border-2 border-transparent focus:border-emerald-500 focus:bg-surface focus:ring-0 transition-all text-right" 
+                                    placeholder="0.00"
+                                />
+                            </div>
+                            <button 
+                                onClick={handleProcessCashPayment} 
+                                className="px-8 py-4 bg-emerald-500 text-white font-bold text-lg rounded-xl shadow hover:bg-emerald-600 active:bg-emerald-700 transition-colors md:w-auto w-full flex-shrink-0"
+                            >
+                                Pay Cash
+                            </button>
+                        </div>
+                        
+                        {/* Quick Cash Suggestions */}
+                        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar md:grid md:grid-cols-6">
+                            {uniqueQuickCash.map(amount => (
+                                <button 
+                                    key={amount} 
+                                    onClick={() => onProcessPayment(cashPaymentType.name, amount)} 
+                                    className="flex-shrink-0 md:flex-shrink py-3 px-4 md:px-0 bg-surface-muted text-text-secondary font-bold rounded-lg hover:bg-emerald-100 hover:text-emerald-700 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-300 border border-transparent hover:border-emerald-200 transition-colors"
+                                >
+                                    ₹{amount}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+      </div>
+    </div>
+);
+
+
+interface ChangeWorkspaceProps {
+    paymentResult: { method: string, change: number, receiptId: string, date: Date };
+    total: number;
+    isPrinting: boolean;
+    handlePrintReceipt: () => void;
+    onNewSale: () => void;
+}
+
+const ChangeWorkspace: React.FC<ChangeWorkspaceProps> = ({ paymentResult, total, isPrinting, handlePrintReceipt, onNewSale }) => {
+    const change = paymentResult.change || 0;
+    const amountTendered = total + change;
+    
+    return (
+        <div className="flex-1 flex flex-col h-full bg-background relative">
+            {/* Header */}
+            <header className="flex-shrink-0 h-16 flex items-center justify-center md:justify-start px-4 md:px-6 bg-surface border-b border-border">
+                 <h2 className="text-xl font-bold text-text-primary">Transaction Complete</h2>
+            </header>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                <div className="max-w-2xl mx-auto flex flex-col items-center justify-center h-full space-y-8 min-h-[400px]">
+                    {/* Success Icon & Message */}
+                    <div className="text-center">
+                        <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4 animate-fadeIn">
+                            <AnimatedCheckIcon className="h-12 w-12 text-green-600 dark:text-green-400" />
+                        </div>
+                        <h2 className="text-3xl font-bold text-text-primary mb-2">Payment Successful</h2>
+                        <p className="text-text-secondary font-mono">Receipt #{paymentResult.receiptId.slice(-4)}</p>
+                    </div>
+
+                    {/* Change Hero */}
+                    {paymentResult.method === 'Cash' && change > 0 && (
+                        <div className="text-center py-6 px-10 bg-surface-muted/50 rounded-2xl w-full border border-border">
+                            <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Change Due</p>
+                            <div className="flex items-baseline justify-center gap-1">
+                                <span className="text-3xl font-bold text-emerald-600/70 dark:text-emerald-400/70">₹</span>
+                                <span className="text-6xl md:text-7xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{change.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Details Grid */}
+                    <div className="w-full bg-surface rounded-xl border border-border p-6 shadow-sm">
+                        <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wide mb-4 border-b border-border pb-2">Transaction Details</h3>
+                        <div className="grid grid-cols-2 gap-y-3 text-sm">
+                            <div className="text-text-secondary">Total Amount</div>
+                            <div className="text-right font-bold text-text-primary">₹{total.toFixed(2)}</div>
+
+                            <div className="text-text-secondary">{paymentResult.method === 'Cash' ? 'Cash Tendered' : 'Payment Method'}</div>
+                            <div className="text-right font-medium text-text-primary">{paymentResult.method === 'Cash' ? `₹${amountTendered.toFixed(2)}` : paymentResult.method}</div>
+
+                            <div className="text-text-secondary">Date & Time</div>
+                            <div className="text-right text-text-primary">{paymentResult.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-shrink-0 p-4 border-t border-border bg-surface z-20 pb-safe-bottom">
+                <div className="flex gap-4 max-w-3xl mx-auto">
+                    <button
+                        onClick={handlePrintReceipt}
+                        disabled={isPrinting}
+                        className="flex-1 flex items-center justify-center gap-2 py-4 border-2 border-border text-text-primary font-bold rounded-xl hover:bg-surface-muted transition-colors disabled:opacity-50 text-lg active:scale-[0.98]"
+                    >
+                        <PrintIcon className="h-6 w-6" />
+                        {isPrinting ? 'Printing...' : 'Print Receipt'}
+                    </button>
+                    <button
+                        onClick={onNewSale}
+                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-primary text-primary-content font-bold text-lg rounded-xl hover:bg-primary-hover shadow-lg active:scale-[0.98] transition-all"
+                    >
+                        <CheckIcon className="h-6 w-6" />
+                        New Sale
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 // --- Main Component ---
 
 interface ChargeScreenProps {
+  orderItems: OrderItem[];
   total: number;
   tax: number;
   subtotal: number;
@@ -112,263 +319,124 @@ interface ChargeScreenProps {
   onProcessPayment: (method: string, tendered: number) => void;
   onNewSale: () => void;
   paymentResult: { method: string, change: number, receiptId: string, date: Date } | null;
-  orderItems: OrderItem[];
 }
 
-const ChargeScreen: React.FC<ChargeScreenProps> = ({ 
-    total, tax, subtotal, onBack, onProcessPayment, onNewSale, paymentResult, orderItems 
-}) => {
-  const { settings, paymentTypes, printers } = useAppContext();
+const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, subtotal, onBack, onProcessPayment, onNewSale, paymentResult }) => {
+  const { settings, printers, paymentTypes } = useAppContext();
+  const [cashTendered, setCashTendered] = useState(total.toFixed(2));
+  const [isPrinting, setIsPrinting] = useState(false);
+  const hasBeenFocused = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   
-  // --- Payment Input State ---
-  const [tenderedInput, setTenderedInput] = useState('');
-  
-  // Calculate quick cash suggestions
-  const quickCashOptions = useMemo(() => {
-    const amount = Math.ceil(total);
-    const options = new Set<number>();
-    
-    // Always add exact amount (rounded up)
-    options.add(amount);
+  const cashPaymentType = useMemo(() => {
+    const config = paymentTypes.find(p => p.id === 'cash');
+    if (config && !config.enabled) {
+      return undefined;
+    }
+    if (config) {
+      return config;
+    }
+    return {
+      id: 'cash',
+      name: 'Cash',
+      icon: 'cash',
+      type: 'cash',
+      enabled: true,
+    } as PaymentType;
+  }, [paymentTypes]);
 
+  const otherPaymentTypes = useMemo(() => paymentTypes.filter(p => p.id !== 'cash' && p.enabled), [paymentTypes]);
+
+
+  const uniqueQuickCash = useMemo(() => {
+    const suggestions = new Set<number>();
+    
     // Add logical next denominations
-    const denominations = [10, 20, 50, 100, 200, 500, 1000, 2000]; // Customize for currency
-    
-    // Next multiple of 10, 50, 100
-    if (amount % 10 !== 0) options.add(Math.ceil(amount / 10) * 10);
-    if (amount % 50 !== 0) options.add(Math.ceil(amount / 50) * 50);
-    if (amount % 100 !== 0) options.add(Math.ceil(amount / 100) * 100);
-    
-    // Add next major bills
-    denominations.forEach(denom => {
-        if (denom > amount) {
-            options.add(denom);
-        }
-    });
+    suggestions.add(Math.ceil(total / 10) * 10);
+    suggestions.add(Math.ceil(total / 50) * 50);
+    suggestions.add(Math.ceil(total / 100) * 100);
+    suggestions.add(Math.ceil(total / 500) * 500);
 
-    // Take top 4 distinct options, sorted
-    return Array.from(options).sort((a, b) => a - b).slice(0, 4);
+    // Filter out values smaller than total and sort
+    const validSuggestions = Array.from(suggestions)
+        .filter(amount => amount >= total)
+        .sort((a, b) => a - b);
+    
+    return validSuggestions.slice(0, 6);
   }, [total]);
-
-  // Pre-fill input on mount
+    
   useEffect(() => {
-      setTenderedInput(total.toFixed(2));
+    setCashTendered(total.toFixed(2));
+    hasBeenFocused.current = false;
   }, [total]);
 
-  const handleCashPay = () => {
-      const tendered = parseFloat(tenderedInput) || 0;
-      if (tendered < total) {
-          alert("Tendered amount is less than total.");
-          return;
+  const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (!hasBeenFocused.current) {
+        e.target.select();
+        hasBeenFocused.current = true;
+    }
+  };
+
+  const handleCashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.value === '' || /^\d*\.?\d{0,2}$/.test(e.target.value)) {
+          setCashTendered(e.target.value);
       }
-      onProcessPayment('Cash', tendered);
   };
 
-  const handleQuickCash = (amount: number) => {
-      onProcessPayment('Cash', amount);
+  const handleProcessCashPayment = () => {
+      if (!cashPaymentType) return;
+      onProcessPayment(cashPaymentType.name, parseFloat(cashTendered) || 0);
   };
-
-  const handleOtherPayment = (methodName: string) => {
-      // For non-cash, tendered is exactly total
+  
+  const handleProcessOtherPayment = (methodName: string) => {
       onProcessPayment(methodName, total);
   };
 
-  // --- Sub-renderers ---
-
-  const PaymentWorkspace = () => (
-      <div className="flex-1 flex flex-col h-full bg-background overflow-hidden relative">
-          <header className="flex-shrink-0 h-16 flex items-center gap-4 px-4 bg-surface border-b border-border">
-              <button onClick={onBack} className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted">
-                  <ArrowLeftIcon className="h-6 w-6" />
-              </button>
-              <h1 className="text-xl font-bold text-text-primary">Checkout</h1>
-          </header>
-
-          <div className="flex-1 overflow-y-auto p-4 md:p-8">
-              <div className="max-w-md mx-auto space-y-4">
-                  
-                  {/* Hero Total Display - Compact & Aligned */}
-                  <div className="text-center mb-2">
-                      <p className="text-sm font-medium text-text-secondary uppercase tracking-wide mb-1">Total Payable</p>
-                      <div className="flex items-baseline justify-center text-primary">
-                          <span className="text-3xl font-medium mr-1 text-text-secondary/70">₹</span>
-                          <span className="text-6xl font-bold tracking-tight font-mono">{total.toFixed(2)}</span>
-                      </div>
-                  </div>
-
-                  {/* Other Payment Methods (Top Priority) */}
-                  <div className="grid grid-cols-1 gap-3">
-                      {paymentTypes.filter(pt => pt.type === 'other' && pt.enabled).map(pt => (
-                          <button
-                              key={pt.id}
-                              onClick={() => handleOtherPayment(pt.name)}
-                              className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-md flex items-center justify-center gap-3 transition-transform active:scale-[0.98]"
-                          >
-                              <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90" />
-                              <span className="text-lg font-bold">{pt.name}</span>
-                          </button>
-                      ))}
-                  </div>
-
-                  <div className="relative flex items-center py-2">
-                      <div className="flex-grow border-t border-border"></div>
-                      <span className="flex-shrink-0 mx-4 text-xs font-bold text-text-muted uppercase tracking-wider">Or Pay Cash</span>
-                      <div className="flex-grow border-t border-border"></div>
-                  </div>
-
-                  {/* Cash Payment Section */}
-                  <div className="bg-surface p-5 rounded-2xl shadow-sm border border-border">
-                      <div className="mb-4">
-                          <label className="block text-xs font-bold text-text-secondary uppercase mb-2">Amount Tendered</label>
-                          <div className="relative">
-                              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted text-xl font-medium">₹</span>
-                              <input
-                                  type="number"
-                                  inputMode="decimal"
-                                  value={tenderedInput}
-                                  onChange={e => setTenderedInput(e.target.value)}
-                                  onFocus={e => e.target.select()}
-                                  className="w-full pl-10 pr-4 py-4 text-3xl font-bold text-text-primary bg-background border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-primary font-mono"
-                              />
-                          </div>
-                      </div>
-
-                      {/* Smart Suggestions */}
-                      <div className="grid grid-cols-4 gap-2 mb-4">
-                          {quickCashOptions.map(amount => (
-                              <button
-                                  key={amount}
-                                  onClick={() => handleQuickCash(amount)}
-                                  className="py-2 bg-surface-muted text-text-primary font-mono font-semibold rounded-lg hover:bg-primary/10 hover:text-primary border border-transparent hover:border-primary transition-colors text-sm"
-                              >
-                                  ₹{amount}
-                              </button>
-                          ))}
-                      </div>
-
-                      <button
-                          onClick={handleCashPay}
-                          className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white text-xl font-bold rounded-xl shadow-md transition-transform active:scale-[0.98] flex items-center justify-center gap-2"
-                      >
-                          <span>Pay Cash</span>
-                      </button>
-                  </div>
-
-              </div>
-          </div>
-      </div>
-  );
-
-  const ChangeWorkspace = () => {
-      const isCash = paymentResult?.method === 'Cash';
-      const [isPrinting, setIsPrinting] = useState(false);
-
-      const handlePrint = async () => {
-          if (!paymentResult || isPrinting) return;
-          if (printers.length === 0) {
-              alert("No printer configured.");
-              return;
-          }
-          setIsPrinting(true);
-          const printerToUse = printers[0]; // Default to first printer
-          const result = await printReceipt({ 
-              items: orderItems, 
-              total, 
-              subtotal, 
-              tax, 
-              receiptId: paymentResult.receiptId, 
-              paymentMethod: paymentResult.method, 
-              settings, 
-              printer: printerToUse,
-              date: paymentResult.date
-          });
-          setIsPrinting(false);
-          if (!result.success) alert(result.message);
-      };
-
-      return (
-        <div className="flex-1 flex flex-col h-full bg-background overflow-hidden">
-            {/* Header */}
-            <header className="flex-shrink-0 h-16 flex items-center justify-center bg-surface border-b border-border">
-                <h1 className="text-lg font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                    <CheckIcon className="h-5 w-5" /> Transaction Complete
-                </h1>
-            </header>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center">
-                <div className="w-full max-w-sm text-center">
-                    <div className="mb-6">
-                        <AnimatedCheckIcon className="h-24 w-24 mx-auto" />
-                    </div>
-                    
-                    <h2 className="text-2xl font-bold text-text-primary mb-1">Payment Successful</h2>
-                    <p className="text-text-secondary mb-8">Receipt #{paymentResult?.receiptId.slice(-4)}</p>
-
-                    {isCash && (
-                        <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border mb-8 transform scale-105">
-                            <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Change Due</p>
-                            <div className="flex items-baseline justify-center text-primary">
-                                <span className="text-3xl font-medium mr-1 text-text-secondary/70">₹</span>
-                                <span className="text-6xl font-bold tracking-tight font-mono">{(paymentResult?.change || 0).toFixed(2)}</span>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="bg-surface-muted rounded-xl p-4 text-sm space-y-2 mb-4">
-                        <div className="flex justify-between">
-                            <span className="text-text-secondary">Total Amount</span>
-                            <span className="font-bold text-text-primary">₹{total.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-text-secondary">Payment Method</span>
-                            <span className="font-bold text-text-primary">{paymentResult?.method}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Fixed Footer */}
-            <div className="p-4 bg-surface border-t border-border z-20 pb-safe-bottom">
-                <div className="flex gap-4 max-w-md mx-auto">
-                    <button 
-                        onClick={handlePrint}
-                        disabled={isPrinting}
-                        className="flex-1 py-4 bg-surface border-2 border-border text-text-primary font-bold rounded-xl hover:bg-surface-muted active:scale-[0.98] transition-colors flex items-center justify-center gap-2"
-                    >
-                        <PrintIcon className="h-5 w-5" />
-                        {isPrinting ? 'Printing...' : 'Print'}
-                    </button>
-                    <button 
-                        onClick={onNewSale}
-                        className="flex-1 py-4 bg-primary text-white font-bold rounded-xl shadow-md hover:bg-primary-hover active:scale-[0.98] transition-colors"
-                    >
-                        New Sale
-                    </button>
-                </div>
-            </div>
-        </div>
-      );
+  const handlePrintReceipt = async () => {
+    if (!paymentResult || isPrinting) return;
+    setIsPrinting(true);
+    const printer = printers.find(p => p.interfaceType === 'Bluetooth') || printers[0];
+    const result = await printReceipt({ items: orderItems, total, subtotal, tax, receiptId: paymentResult.receiptId, paymentMethod: paymentResult.method, settings, printer, date: paymentResult.date });
+    setIsPrinting(false);
+    if (!result.success) alert(`Print Failed: ${result.message}`);
   };
-
+  
   return (
-    <div className="flex h-full w-full bg-background font-sans">
-      {/* 
-         SPLIT SCREEN LAYOUT:
-         Left: Static Ticket Panel (Order Summary) - Visible on Desktop/Tablet
-         Right: Workspace (Payment Entry OR Success Screen)
-      */}
+    <div className="flex flex-col md:flex-row w-full h-full bg-background overflow-hidden">
+      {/* Always render StaticTicketPanel for split view consistency */}
       <StaticTicketPanel 
         orderItems={orderItems} 
-        settings={settings} 
-        subtotal={subtotal} 
-        tax={tax} 
+        settings={settings}
+        subtotal={subtotal}
+        tax={tax}
         total={total}
       />
       
-      {/* Right Panel Workspace */}
-      <div className="flex-1 h-full min-w-0">
-          {paymentResult ? <ChangeWorkspace /> : <PaymentWorkspace />}
+      <div className="flex-1 flex flex-col h-full min-w-0">
+        {paymentResult ? (
+          <ChangeWorkspace 
+            paymentResult={paymentResult}
+            total={total}
+            isPrinting={isPrinting}
+            handlePrintReceipt={handlePrintReceipt}
+            onNewSale={onNewSale}
+          />
+        ) : (
+          <PaymentWorkspace
+            onBack={onBack}
+            total={total}
+            otherPaymentTypes={otherPaymentTypes}
+            cashPaymentType={cashPaymentType}
+            inputRef={inputRef}
+            cashTendered={cashTendered}
+            handleFocus={handleFocus}
+            handleCashChange={handleCashChange}
+            handleProcessCashPayment={handleProcessCashPayment}
+            handleProcessOtherPayment={handleProcessOtherPayment}
+            uniqueQuickCash={uniqueQuickCash}
+            onProcessPayment={onProcessPayment}
+          />
+        )}
       </div>
     </div>
   );
