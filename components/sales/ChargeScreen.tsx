@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { OrderItem, PaymentType } from '../../types';
 import { useAppContext } from '../../context/AppContext';
@@ -357,20 +356,29 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
 
 
   const uniqueQuickCash = useMemo(() => {
+    // Standard currency denominations to use as a base.
+    const denominations = [10, 20, 50, 100, 200, 500, 2000];
     const suggestions = new Set<number>();
-    
-    // Add logical next denominations
-    suggestions.add(Math.ceil(total / 10) * 10);
-    suggestions.add(Math.ceil(total / 50) * 50);
-    suggestions.add(Math.ceil(total / 100) * 100);
-    suggestions.add(Math.ceil(total / 500) * 500);
 
-    // Filter out values smaller than total and sort
-    const validSuggestions = Array.from(suggestions)
-        .filter(amount => amount >= total)
-        .sort((a, b) => a - b);
-    
-    return validSuggestions.slice(0, 6);
+    // 1. Add the next available currency notes that are greater than the total.
+    denominations.forEach(denom => {
+      if (denom > total) {
+        suggestions.add(denom);
+      }
+    });
+
+    // 2. Add suggestions by rounding up to the nearest 10s and 100s.
+    suggestions.add(Math.ceil(total / 10) * 10);
+    suggestions.add(Math.ceil(total / 100) * 100);
+
+    // 3. Process, filter, sort, and limit the suggestions.
+    const finalSuggestions = Array.from(suggestions)
+      // Filter out any suggestion that is not strictly greater than the total.
+      // This handles cases where the total is an exact multiple of 10 or 100.
+      .filter(amount => amount > total)
+      .sort((a, b) => a - b);
+
+    return finalSuggestions.slice(0, 6);
   }, [total]);
     
   useEffect(() => {
