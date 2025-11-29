@@ -159,26 +159,9 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
             </div>
 
             <div className="w-full space-y-2">
-                {/* Other Methods Grid */}
-                <div>
-                     <label className="block text-sm font-bold text-text-secondary mb-2 px-1">Payment Methods</label>
-                     <div className="grid grid-cols-1 gap-3">
-                        {otherPaymentTypes.map(pt => (
-                            <button 
-                            key={pt.id} 
-                            onClick={() => handleProcessOtherPayment(pt.name)} 
-                            className="bg-indigo-600 text-white font-bold rounded-xl shadow-md hover:bg-indigo-700 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
-                            >
-                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
-                            <span>{pt.name}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Cash Section */}
+                {/* Cash Section - MOVED TO TOP */}
                 {cashPaymentType && (
-                    <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm mt-4">
+                    <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm mt-4 mb-4">
                         <label className="block text-sm font-bold text-text-secondary mb-2">Cash Payment</label>
                         <div className="flex flex-col md:flex-row items-stretch gap-3 mb-3">
                             <div className="relative flex-grow">
@@ -217,6 +200,27 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                         </div>
                     </div>
                 )}
+
+                {/* Other Methods Grid - MOVED TO BOTTOM */}
+                <div>
+                     <div className="flex items-center gap-4 my-6">
+                        <hr className="flex-grow border-border" />
+                        <span className="text-xs font-bold text-text-muted uppercase tracking-wider">Or pay using</span>
+                        <hr className="flex-grow border-border" />
+                     </div>
+                     <div className="grid grid-cols-1 gap-3">
+                        {otherPaymentTypes.map(pt => (
+                            <button 
+                            key={pt.id} 
+                            onClick={() => handleProcessOtherPayment(pt.name)} 
+                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
+                            >
+                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
+                            <span>{pt.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
       </div>
