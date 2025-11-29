@@ -150,7 +150,7 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-3xl mx-auto flex flex-col items-center">
             {/* Total Display */}
-            <div className="mb-2 text-center py-1">
+            <div className="mb-6 text-center py-1">
                 <p className="text-xs text-text-muted uppercase tracking-wider mb-1 font-bold">Total Payable Amount</p>
                 <div className="flex items-baseline justify-center gap-1 text-5xl md:text-7xl font-bold font-mono text-text-primary tracking-tight">
                     <span className="text-3xl md:text-5xl text-text-muted font-normal">₹</span>
@@ -158,10 +158,35 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                 </div>
             </div>
 
-            <div className="w-full space-y-2">
-                {/* Cash Section - MOVED TO TOP */}
+            <div className="w-full space-y-6">
+                {/* 1. Other Methods Grid - MOVED TO TOP */}
+                <div>
+                     <div className="grid grid-cols-1 gap-3">
+                        {otherPaymentTypes.map(pt => (
+                            <button 
+                            key={pt.id} 
+                            onClick={() => handleProcessOtherPayment(pt.name)} 
+                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
+                            >
+                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
+                            <span>{pt.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Divider */}
+                {cashPaymentType && otherPaymentTypes.length > 0 && (
+                    <div className="flex items-center gap-4">
+                        <hr className="flex-grow border-border" />
+                        <span className="text-xs font-bold text-text-muted uppercase tracking-wider">OR</span>
+                        <hr className="flex-grow border-border" />
+                    </div>
+                )}
+
+                {/* 2. Cash Section - MOVED TO BOTTOM */}
                 {cashPaymentType && (
-                    <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm mt-4 mb-4">
+                    <div className="bg-surface p-4 rounded-2xl border border-border shadow-sm">
                         <label className="block text-sm font-bold text-text-secondary mb-2">Cash Payment</label>
                         <div className="flex flex-col md:flex-row items-stretch gap-3 mb-3">
                             <div className="relative flex-grow">
@@ -200,27 +225,6 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
                         </div>
                     </div>
                 )}
-
-                {/* Other Methods Grid - MOVED TO BOTTOM */}
-                <div>
-                     <div className="flex items-center gap-4 my-6">
-                        <hr className="flex-grow border-border" />
-                        <span className="text-xs font-bold text-text-muted uppercase tracking-wider">Or pay using</span>
-                        <hr className="flex-grow border-border" />
-                     </div>
-                     <div className="grid grid-cols-1 gap-3">
-                        {otherPaymentTypes.map(pt => (
-                            <button 
-                            key={pt.id} 
-                            onClick={() => handleProcessOtherPayment(pt.name)} 
-                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
-                            >
-                            <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
-                            <span>{pt.name}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
             </div>
         </div>
       </div>
