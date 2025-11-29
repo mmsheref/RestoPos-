@@ -1,6 +1,7 @@
+
 {
-  "appId": "com.restaurant.pos",
-  "appName": "Restaurant POS",
+  "appId": "com.restopos.app",
+  "appName": "RestoPos",
   "webDir": "dist",
   "bundledWebRuntime": false
 }

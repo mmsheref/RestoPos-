@@ -1,5 +1,5 @@
 {
-  "name": "restaurant-pos",
+  "name": "restopos",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -13,6 +13,7 @@
     "react-dom": "19.2.0",
     "react-router-dom": "7.9.6",
     "@capacitor/core": "7.4.4",
+    "@capacitor/app": "7.0.0",
     "@capacitor/filesystem": "7.1.4",
     "@capacitor/share": "7.0.2",
     "firebase": "^12.6.0"
