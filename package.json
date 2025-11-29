@@ -1,5 +1,5 @@
 {
-  "name": "restaurant-pos",
+  "name": "restopos",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/app": "7.0.0",
     "@capacitor/filesystem": "^7.1.4",
     "@capacitor/share": "^7.0.2",
     "cordova-plugin-android-permissions": "^1.1.5",

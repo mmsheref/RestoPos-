@@ -1,4 +1,5 @@
-# Restaurant POS
+
+# RestoPos
 
 A modern, high-performance, touch-friendly Point of Sale (POS) system designed for fast-paced restaurant environments. Built with a focus on speed, reliability, and offline capability.
 
@@ -44,7 +45,7 @@ This application is built with a focus on raw speed and reliability in a demandi
 1.  **Clone the repository:**
     ```bash
     git clone <repository-url>
-    cd restaurant-pos
+    cd restopos
     ```
 
 2.  **Install dependencies:**
@@ -68,7 +69,7 @@ This application is built with a focus on raw speed and reliability in a demandi
 1.  **Initialize Capacitor (if not already done):**
     ```bash
     npm init -y
-    npm install @capacitor/core @capacitor/cli
+    npm install @capacitor/core @capacitor/cli @capacitor/app
     npx cap init
     ```
 

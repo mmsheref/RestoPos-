@@ -1,4 +1,5 @@
-# Restaurant POS - Quick Start Guide
+
+# RestoPos - Quick Start Guide
 
 This guide provides a brief overview of the main features of your high-performance Restaurant POS system.
 
