@@ -150,21 +150,21 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="max-w-3xl mx-auto flex flex-col items-center">
             {/* Total Display */}
-            <div className="mb-8 text-center py-6">
-                <p className="text-sm text-text-muted uppercase tracking-wider mb-2 font-bold">Total Payable Amount</p>
+            <div className="mb-6 text-center py-2">
+                <p className="text-xs text-text-muted uppercase tracking-wider mb-1 font-bold">Total Payable Amount</p>
                 <h1 className="text-5xl md:text-7xl font-bold font-mono text-text-primary tracking-tight">₹{total.toFixed(2)}</h1>
             </div>
 
-            <div className="w-full space-y-8">
+            <div className="w-full space-y-4">
                 {/* Other Methods Grid */}
                 <div>
-                     <label className="block text-sm font-bold text-text-secondary mb-3 px-1">Payment Methods</label>
-                     <div className="grid grid-cols-1 gap-4">
+                     <label className="block text-sm font-bold text-text-secondary mb-2 px-1">Payment Methods</label>
+                     <div className="grid grid-cols-1 gap-3">
                         {otherPaymentTypes.map(pt => (
                             <button 
                             key={pt.id} 
                             onClick={() => handleProcessOtherPayment(pt.name)} 
-                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95 py-4 w-full"
+                            className="bg-emerald-500 text-white font-bold rounded-xl shadow-md hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95 py-3 w-full"
                             >
                             <PaymentMethodIcon iconName={pt.icon} className="h-6 w-6 text-white/90"/>
                             <span>{pt.name}</span>
@@ -175,8 +175,8 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
 
                 {/* Cash Section */}
                 {cashPaymentType && (
-                    <div className="bg-surface p-6 rounded-2xl border border-border shadow-sm">
-                        <label className="block text-sm font-bold text-text-secondary mb-3">Cash Payment</label>
+                    <div className="bg-surface p-5 rounded-2xl border border-border shadow-sm">
+                        <label className="block text-sm font-bold text-text-secondary mb-2">Cash Payment</label>
                         <div className="flex flex-col md:flex-row items-stretch gap-4 mb-4">
                             <div className="relative flex-grow">
                                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted font-bold text-xl">₹</span>
