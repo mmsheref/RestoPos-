@@ -95,7 +95,6 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 {/* Item Details */}
                 <div className="flex-grow min-w-0 pr-4 pointer-events-none">
                     <p className="font-semibold text-text-primary truncate text-base">{item.name}</p>
-                    <p className="text-text-secondary text-sm">{item.price.toFixed(2)}</p>
                 </div>
 
                 {/* Quantity Controls */}

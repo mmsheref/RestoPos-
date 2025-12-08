@@ -32,7 +32,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                     <img 
                         src={item.imageUrl} 
                         alt={item.name} 
-                        className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 grayscale"
+                        className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 grayscale pointer-events-none"
                     />
                 )}
                 
@@ -71,8 +71,7 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
     // --- NORMAL MODE RENDER (SPEED OPTIMIZED) ---
     
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-        // Remove focus to prevent sticky hover states on mobile
-        e.currentTarget.blur();
+        // Removed e.currentTarget.blur() to prevent event interruption on mobile
         onAddItemToOrder(item);
     };
 
@@ -81,19 +80,19 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                className={`relative w-full rounded-lg overflow-hidden cursor-pointer shadow-sm border border-border bg-surface-muted ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation group`}
+                className={`relative w-full rounded-lg overflow-hidden cursor-pointer shadow-sm border border-border bg-surface-muted ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation group select-none`}
                 aria-label={`Add ${item.name} to order`}
             >
                 {/* Inner container handles the scale animation so the button hit area stays full size */}
-                <div className="w-full h-full transition-transform duration-75 group-active:scale-95">
+                <div className="w-full h-full transition-transform duration-75 group-active:scale-95 pointer-events-none">
                     <img 
                         src={item.imageUrl} 
                         alt={item.name} 
-                        className="absolute inset-0 w-full h-full object-cover z-0"
+                        className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
                         loading="lazy"
                         decoding="async"
                     />
-                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm z-10 pointer-events-none">
+                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm z-10">
                         <h3 className="font-semibold text-white text-xs md:text-sm leading-tight text-center line-clamp-2">
                             {item.name}
                         </h3>
@@ -106,11 +105,11 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                className={`relative w-full rounded-lg cursor-pointer shadow-sm border border-border bg-surface ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation group`}
+                className={`relative w-full rounded-lg cursor-pointer shadow-sm border border-border bg-surface ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation group select-none`}
                 aria-label={`Add ${item.name} to order`}
             >
-                <div className="w-full h-full flex flex-col justify-center items-center p-2 text-center transition-colors hover:bg-surface-muted duration-75 group-active:scale-95">
-                    <h3 className="font-semibold text-text-primary text-sm md:text-base leading-tight line-clamp-3 pointer-events-none">
+                <div className="w-full h-full flex flex-col justify-center items-center p-2 text-center transition-colors hover:bg-surface-muted duration-75 group-active:scale-95 pointer-events-none">
+                    <h3 className="font-semibold text-text-primary text-sm md:text-base leading-tight line-clamp-3">
                         {item.name}
                     </h3>
                 </div>
