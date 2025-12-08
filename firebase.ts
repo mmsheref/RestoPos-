@@ -1,3 +1,4 @@
+
 import { initializeApp } from 'firebase/app';
 import { 
   initializeFirestore,
@@ -27,7 +28,8 @@ const auth = getAuth(app);
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
-  })
+  }),
+  ignoreUndefinedProperties: true
 });
 
 // --- Auth Functions ---
