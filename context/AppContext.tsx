@@ -25,6 +25,15 @@ const DEFAULT_SETTINGS: AppSettings = {
     storeAddress: '123 Food Street, Flavor Town',
     receiptFooter: 'Follow us @myrestaurant',
     reportsPIN: '', // Empty means no PIN protection
+    receiptDesign: {
+        headerFontSize: 'large',
+        showStoreName: true,
+        showStoreAddress: true,
+        showDate: true,
+        showTaxBreakdown: true,
+        showFooter: true,
+        compactMode: false
+    }
 };
 
 interface FirebaseErrorState {
@@ -110,7 +119,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // We initialize state from localStorage where possible for instant boot ('Optimistic UI')
   const [settings, setSettingsState] = useState<AppSettings>(() => {
       const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
-      return cached ? JSON.parse(cached) : DEFAULT_SETTINGS;
+      // Merge with default to ensure new properties (like receiptDesign) exist if cached data is old
+      const parsed = cached ? JSON.parse(cached) : {};
+      return { ...DEFAULT_SETTINGS, ...parsed, receiptDesign: { ...DEFAULT_SETTINGS.receiptDesign, ...parsed.receiptDesign } };
   });
   
   const [items, setItemsState] = useState<Item[]>(() => {
@@ -234,9 +245,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 // 1. Settings
                 const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
                 if (settingsSnap.exists()) {
-                    const newSettings = settingsSnap.data() as AppSettings;
-                    setSettingsState(newSettings);
-                    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
+                    const fetched = settingsSnap.data() as AppSettings;
+                    // Merge with defaults to handle new fields
+                    const merged = { ...DEFAULT_SETTINGS, ...fetched, receiptDesign: { ...DEFAULT_SETTINGS.receiptDesign, ...fetched.receiptDesign } };
+                    setSettingsState(merged);
+                    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged));
                 } else {
                     // Initialize default data for new user
                     await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);

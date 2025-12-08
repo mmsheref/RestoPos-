@@ -127,6 +127,19 @@ export interface Printer {
 }
 
 /**
+ * Configuration for Receipt visual styling
+ */
+export interface ReceiptDesign {
+    headerFontSize: 'normal' | 'large' | 'huge';
+    showStoreName: boolean;
+    showStoreAddress: boolean;
+    showDate: boolean;
+    showTaxBreakdown: boolean;
+    showFooter: boolean;
+    compactMode: boolean; // Reduces whitespace
+}
+
+/**
  * Global application settings.
  */
 export interface AppSettings {
@@ -136,7 +149,9 @@ export interface AppSettings {
   storeAddress?: string;
   receiptFooter?: string;
   /** Encrypted or plain-text PIN for accessing restricted areas */
-  reportsPIN?: string; 
+  reportsPIN?: string;
+  /** Receipt styling preferences */
+  receiptDesign?: ReceiptDesign; 
 }
 
 /**
