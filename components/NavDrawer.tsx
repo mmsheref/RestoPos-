@@ -6,20 +6,8 @@ import { NAV_LINKS, SignOutIcon, APP_VERSION, SyncIcon, OfflineIcon, CheckIcon }
 import ConfirmModal from './modals/ConfirmModal';
 
 const NavDrawer: React.FC = () => {
-  const { isDrawerOpen, closeDrawer, user, signOut, settings, pendingSyncCount } = useAppContext();
+  const { isDrawerOpen, closeDrawer, user, signOut, settings, pendingSyncCount, isOnline } = useAppContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   const handleSignOutClick = () => {
     setIsSignOutModalOpen(true);
@@ -81,17 +69,17 @@ const NavDrawer: React.FC = () => {
                 {!isOnline ? (
                     <>
                         <OfflineIcon className="h-4 w-4" />
-                        <span>Offline</span>
+                        <span>Offline Mode</span>
                     </>
                 ) : pendingSyncCount > 0 ? (
                     <>
                         <SyncIcon className="h-4 w-4 animate-spin" />
-                        <span>Syncing ({pendingSyncCount} pending)...</span>
+                        <span>{pendingSyncCount} unsynced transaction{pendingSyncCount !== 1 ? 's' : ''}</span>
                     </>
                 ) : (
                     <>
                         <CheckIcon className="h-4 w-4" />
-                        <span>All Data Synced</span>
+                        <span>All Changes Saved</span>
                     </>
                 )}
             </div>

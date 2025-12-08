@@ -278,4 +278,5 @@ export interface AppContextType {
   
   // --- Status ---
   pendingSyncCount: number;
+  isOnline: boolean;
 }
