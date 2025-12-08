@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
     CustomGrid, PaymentType, OrderItem, AppContextType, Table 
@@ -17,13 +17,14 @@ import { APP_VERSION } from '../constants';
 
 type Theme = 'light' | 'dark';
 
+// Default configuration for new users
 const DEFAULT_SETTINGS: AppSettings = { 
     taxEnabled: true, 
     taxRate: 5, 
     storeName: 'My Restaurant',
     storeAddress: '123 Food Street, Flavor Town',
     receiptFooter: 'Follow us @myrestaurant',
-    reportsPIN: '', // Security feature
+    reportsPIN: '', // Empty means no PIN protection
 };
 
 interface FirebaseErrorState {
@@ -35,6 +36,7 @@ interface FirebaseErrorState {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// LocalStorage Keys
 const ITEMS_CACHE_KEY = 'pos_items_cache';
 const SETTINGS_CACHE_KEY = 'pos_settings_cache';
 const GRIDS_CACHE_KEY = 'pos_grids_cache'; 
@@ -42,20 +44,21 @@ const ONBOARDING_COMPLETED_KEY = 'pos_onboarding_completed_v1';
 const ACTIVE_GRID_KEY = 'pos_active_grid_id';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  
+  // ==========================================
+  // SECTION: AUTH & INITIALIZATION
+  // ==========================================
   const [user, setUser] = useState<User | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [headerTitle, setHeaderTitle] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [initializationError, setInitializationError] = useState<FirebaseErrorState | null>(null);
   
+  // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(() => {
     return !localStorage.getItem(ONBOARDING_COMPLETED_KEY);
   });
-  
-  // Reports persistent unlock state (session only)
-  const [isReportsUnlocked, setReportsUnlocked] = useState(false);
 
   const completeOnboarding = useCallback(async (): Promise<boolean> => {
+    // If native, request permissions first
     if (Capacitor.isNativePlatform()) {
       const permissionsGranted = await requestAppPermissions();
       if (permissionsGranted) {
@@ -65,23 +68,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       return false; 
     }
+    // If web, just proceed
     localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
     setShowOnboarding(false);
     return true;
   }, []);
 
+  // ==========================================
+  // SECTION: UI STATE
+  // ==========================================
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [headerTitle, setHeaderTitle] = useState('');
+  const [isReportsUnlocked, setReportsUnlocked] = useState(false); // Session-based security
+
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
         const storedPrefs = localStorage.getItem('theme');
-        if (storedPrefs) {
-            return storedPrefs as Theme;
-        }
+        if (storedPrefs) return storedPrefs as Theme;
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     return 'light';
   });
 
-  // --- State ---
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+  };
+  
+  useEffect(() => {
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [theme]);
+
+  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
+  const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
+
+  // ==========================================
+  // SECTION: DATA STATE (LOCAL & REMOTE)
+  // ==========================================
+  // We initialize state from localStorage where possible for instant boot ('Optimistic UI')
   const [settings, setSettingsState] = useState<AppSettings>(() => {
       const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
       return cached ? JSON.parse(cached) : DEFAULT_SETTINGS;
@@ -103,8 +129,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
   
-  const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
-  
+  // Sales Screen Persistence
   const [activeGridId, setActiveGridIdState] = useState<string>(() => {
       return localStorage.getItem(ACTIVE_GRID_KEY) || 'All';
   });
@@ -114,123 +139,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       localStorage.setItem(ACTIVE_GRID_KEY, id);
   }, []);
   
+  // Pagination State for Receipts
   const [lastReceiptDoc, setLastReceiptDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMoreReceipts, setHasMoreReceipts] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-        if (currentUser) {
-            setUser(currentUser);
-            const uid = currentUser.uid;
-
-            const fetchAllDataOnce = async () => {
-              try {
-                const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
-                if (settingsSnap.exists()) {
-                    const newSettings = settingsSnap.data() as AppSettings;
-                    setSettingsState(newSettings);
-                    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
-                } else {
-                    await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
-                    setSettingsState(DEFAULT_SETTINGS);
-                    
-                    const batch = writeBatch(db);
-                    const ptCollection = collection(db, 'users', uid, 'payment_types');
-                    batch.set(doc(ptCollection, 'cash'), { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash', enabled: true });
-                    batch.set(doc(ptCollection, 'upi'), { id: 'upi', name: 'UPI', icon: 'upi', type: 'other', enabled: true });
-                    
-                    const tablesCollection = collection(db, 'users', uid, 'tables');
-                    const defaultTables = ['Table 1', 'Table 2', 'Table 3', 'Takeout 1', 'Delivery'];
-                    defaultTables.forEach((name, index) => {
-                       const tableId = `T${index + 1}`;
-                       batch.set(doc(tablesCollection, tableId), { 
-                         id: tableId, 
-                         name, 
-                         order: index
-                       });
-                    });
-
-                    await batch.commit();
-                }
-
-                const [
-                    itemsSnap,
-                    printersSnap,
-                    paymentTypesSnap,
-                    tablesSnap,
-                    ticketsSnap,
-                    gridsSnap
-                ] = await Promise.all([
-                    getDocs(collection(db, 'users', uid, 'items')),
-                    getDocs(collection(db, 'users', uid, 'printers')),
-                    getDocs(collection(db, 'users', uid, 'payment_types')),
-                    getDocs(query(collection(db, 'users', uid, 'tables'), orderBy('order'))),
-                    getDocs(collection(db, 'users', uid, 'saved_tickets')),
-                    getDocs(query(collection(db, 'users', uid, 'custom_grids'), orderBy('order')))
-                ]);
-
-                const itemsData = itemsSnap.docs.map(doc => doc.data() as Item);
-                setItemsState(itemsData);
-                localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
-
-                const gridsData = gridsSnap.docs.map(doc => doc.data() as CustomGrid);
-                setCustomGridsState(gridsData);
-                localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(gridsData));
-
-                setPrintersState(printersSnap.docs.map(doc => doc.data() as Printer));
-                setPaymentTypesState(paymentTypesSnap.docs.map(doc => doc.data() as PaymentType));
-                setTablesState(tablesSnap.docs.map(doc => doc.data() as Table));
-                setSavedTicketsState(ticketsSnap.docs.map(doc => doc.data() as SavedTicket));
-                
-
-              } catch (e) {
-                  console.error("Error fetching initial data:", e);
-              }
-            };
-            
-            fetchAllDataOnce();
-
-            const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
-            const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
-                const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
-                setReceiptsState(prev => {
-                    const combined = [...receiptsData, ...prev.filter(p => !receiptsData.some(n => n.id === p.id))];
-                    return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
-                });
-                if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
-                if (snapshot.docs.length < 100) setHasMoreReceipts(false); else setHasMoreReceipts(true);
-            });
-            
-            setIsLoading(false);
-            return () => { 
-              unsubReceipts();
-            };
-
-        } else {
-            setUser(null);
-            setItemsState([]); setReceiptsState([]); setPrintersState([]); setPaymentTypesState([]); setSavedTicketsState([]); setCustomGridsState([]); setTablesState([]);
-            setSettingsState(DEFAULT_SETTINGS);
-            setCurrentOrder([]);
-            setIsLoading(false);
-            localStorage.removeItem(ITEMS_CACHE_KEY);
-            localStorage.removeItem(SETTINGS_CACHE_KEY);
-            localStorage.removeItem(GRIDS_CACHE_KEY);
-            localStorage.removeItem(ACTIVE_GRID_KEY);
-        }
-    }, (error) => {
-        console.error("Firebase Auth error:", error);
-        setInitializationError({ title: 'Connection Failed', message: error.message || 'Could not connect. Working offline.', instructions: ['Check internet connection.'], projectId: firebaseConfig.projectId });
-        setIsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
 
   const getUid = useCallback(() => {
     if (!user) throw new Error("User not authenticated");
     return user.uid;
   }, [user]);
 
+  // ==========================================
+  // SECTION: CART LOGIC
+  // ==========================================
+  const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
+
+  /**
+   * Smart Add: If the last item added is the same, just increment qty.
+   * Otherwise, append as a new line.
+   */
   const addToOrder = useCallback((item: Item) => {
     setCurrentOrder(current => {
       const lastItem = current.length > 0 ? current[current.length - 1] : null;
@@ -281,6 +207,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const clearOrder = useCallback(() => setCurrentOrder([]), []);
   
   const loadOrder = useCallback((items: OrderItem[]) => {
+    // Regenerate line IDs to prevent conflicts if loaded multiple times
     const migratedItems = items.map(item => ({
       ...item,
       lineItemId: item.lineItemId || `L${Date.now()}-${Math.random()}`
@@ -288,6 +215,119 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentOrder(migratedItems);
   }, []);
 
+  // ==========================================
+  // SECTION: FIREBASE SYNC LOGIC
+  // ==========================================
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if (currentUser) {
+            setUser(currentUser);
+            const uid = currentUser.uid;
+
+            // STRATEGY: Fetch static data (Settings, Items, Grids) ONLY ONCE on load to save reads.
+            // Only Receipts need a real-time listener (for the latest transactions).
+            const fetchAllDataOnce = async () => {
+              try {
+                // 1. Settings
+                const settingsSnap = await getDoc(doc(db, 'users', uid, 'config', 'settings'));
+                if (settingsSnap.exists()) {
+                    const newSettings = settingsSnap.data() as AppSettings;
+                    setSettingsState(newSettings);
+                    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
+                } else {
+                    // Initialize default data for new user
+                    await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
+                    setSettingsState(DEFAULT_SETTINGS);
+                    
+                    const batch = writeBatch(db);
+                    const ptCollection = collection(db, 'users', uid, 'payment_types');
+                    batch.set(doc(ptCollection, 'cash'), { id: 'cash', name: 'Cash', icon: 'cash', type: 'cash', enabled: true });
+                    batch.set(doc(ptCollection, 'upi'), { id: 'upi', name: 'UPI', icon: 'upi', type: 'other', enabled: true });
+                    
+                    const tablesCollection = collection(db, 'users', uid, 'tables');
+                    ['Table 1', 'Table 2', 'Table 3', 'Takeout 1'].forEach((name, index) => {
+                       const tableId = `T${index + 1}`;
+                       batch.set(doc(tablesCollection, tableId), { id: tableId, name, order: index });
+                    });
+                    await batch.commit();
+                }
+
+                // 2. Parallel Fetch of Static Collections
+                const [itemsSnap, printersSnap, paymentTypesSnap, tablesSnap, ticketsSnap, gridsSnap] = await Promise.all([
+                    getDocs(collection(db, 'users', uid, 'items')),
+                    getDocs(collection(db, 'users', uid, 'printers')),
+                    getDocs(collection(db, 'users', uid, 'payment_types')),
+                    getDocs(query(collection(db, 'users', uid, 'tables'), orderBy('order'))),
+                    getDocs(collection(db, 'users', uid, 'saved_tickets')),
+                    getDocs(query(collection(db, 'users', uid, 'custom_grids'), orderBy('order')))
+                ]);
+
+                // 3. Populate State & Cache
+                const itemsData = itemsSnap.docs.map(doc => doc.data() as Item);
+                setItemsState(itemsData);
+                localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(itemsData));
+
+                const gridsData = gridsSnap.docs.map(doc => doc.data() as CustomGrid);
+                setCustomGridsState(gridsData);
+                localStorage.setItem(GRIDS_CACHE_KEY, JSON.stringify(gridsData));
+
+                setPrintersState(printersSnap.docs.map(doc => doc.data() as Printer));
+                setPaymentTypesState(paymentTypesSnap.docs.map(doc => doc.data() as PaymentType));
+                setTablesState(tablesSnap.docs.map(doc => doc.data() as Table));
+                setSavedTicketsState(ticketsSnap.docs.map(doc => doc.data() as SavedTicket));
+
+              } catch (e) {
+                  console.error("Error fetching initial data:", e);
+              }
+            };
+            
+            fetchAllDataOnce();
+
+            // 4. Real-time Listener for Receipts (Limited to 100 for performance)
+            const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
+            const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
+                const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
+                setReceiptsState(prev => {
+                    // Merge new receipts with existing state safely
+                    const combined = [...receiptsData, ...prev.filter(p => !receiptsData.some(n => n.id === p.id))];
+                    return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
+                });
+                
+                // Track pagination cursor
+                if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
+                if (snapshot.docs.length < 100) setHasMoreReceipts(false); else setHasMoreReceipts(true);
+            });
+            
+            setIsLoading(false);
+            return () => { unsubReceipts(); };
+
+        } else {
+            // Cleanup on Logout
+            setUser(null);
+            setItemsState([]); setReceiptsState([]); setPrintersState([]); setPaymentTypesState([]); 
+            setSavedTicketsState([]); setCustomGridsState([]); setTablesState([]);
+            setSettingsState(DEFAULT_SETTINGS);
+            setCurrentOrder([]);
+            setIsLoading(false);
+            localStorage.removeItem(ITEMS_CACHE_KEY);
+            localStorage.removeItem(SETTINGS_CACHE_KEY);
+            localStorage.removeItem(GRIDS_CACHE_KEY);
+            localStorage.removeItem(ACTIVE_GRID_KEY);
+        }
+    }, (error) => {
+        console.error("Firebase Auth error:", error);
+        setInitializationError({ title: 'Connection Failed', message: error.message || 'Could not connect. Working offline.', instructions: ['Check internet connection.'], projectId: firebaseConfig.projectId });
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // ==========================================
+  // SECTION: CRUD OPERATIONS
+  // ==========================================
+
+  // --- RECEIPTS ---
   const loadMoreReceipts = useCallback(async () => {
       if (!lastReceiptDoc || !user) return;
       try {
@@ -304,6 +344,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
+    // Optimistic Update: Update UI immediately
     setReceiptsState(prev => [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime()).slice(0, 100));
     try { 
         await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
@@ -312,27 +353,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid]);
 
   const deleteReceipt = useCallback(async (id: string) => {
-    // Optimistic update
     setReceiptsState(prev => prev.filter(r => r.id !== id));
     try {
         await deleteDoc(doc(db, 'users', getUid(), 'receipts', id));
     } catch (e) {
         console.error("Failed to delete receipt", e);
-        // We could revert state here if critical, but for now we assume eventual consistency or retry
         alert("Failed to delete receipt from server. It may reappear on refresh.");
     }
   }, [getUid]);
 
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
-  
-  useEffect(() => {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, [theme]);
-
+  // --- SETTINGS ---
   const updateSettings = useCallback(async (newSettings: Partial<AppSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
@@ -340,6 +370,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     catch (e) { console.error(e); }
   }, [settings, getUid]);
 
+  // --- HARDWARE & CONFIG ---
   const addPrinter = useCallback(async (printer: Printer) => {
     setPrintersState(prev => [...prev, printer]);
     try { await setDoc(doc(db, 'users', getUid(), 'printers', printer.id), printer); } 
@@ -376,6 +407,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       catch (e) { console.error(e); alert("Failed to delete payment type."); }
   }, [getUid]);
 
+  // --- ITEMS ---
   const addItem = useCallback(async (item: Item) => {
     setItemsState(prev => [...prev, item]);
     try { await setDoc(doc(db, 'users', getUid(), 'items', item.id), item); } 
@@ -388,22 +420,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     catch (e) { console.error(e); alert("Failed to update item."); }
   }, [getUid]);
 
+  /**
+   * Deleting an item is complex because we must also remove it from any Custom Grids
+   * where it might be placed. We use a Batch Write for atomicity.
+   */
   const deleteItem = useCallback(async (id: string) => {
     const uid = getUid();
+    // 1. Optimistic UI updates
     setItemsState(prev => prev.filter(i => i.id !== id));
     setCustomGridsState(prev => prev.map(grid => ({
       ...grid,
       itemIds: Array.isArray(grid.itemIds) ? grid.itemIds.map(itemId => itemId === id ? null : itemId) : []
     })));
 
+    // 2. Database Batch Operation
     const batch = writeBatch(db);
     batch.delete(doc(db, 'users', uid, 'items', id));
+    
     const gridsToUpdate = customGrids.filter(grid => Array.isArray(grid.itemIds) && grid.itemIds.includes(id));
     gridsToUpdate.forEach(grid => {
       const newItemIds = grid.itemIds.map(itemId => (itemId === id ? null : itemId));
       const gridRef = doc(db, 'users', uid, 'custom_grids', grid.id);
       batch.update(gridRef, { itemIds: newItemIds });
     });
+
     try {
       await batch.commit();
     } catch (e) {
@@ -412,6 +452,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [getUid, customGrids]);
 
+  // --- TICKETS ---
   const saveTicket = useCallback(async (ticket: SavedTicket) => {
       const ticketWithTimestamp = { ...ticket, lastModified: Date.now() };
       setSavedTicketsState(prev => [...prev.filter(t => t.id !== ticket.id), ticketWithTimestamp]);
@@ -429,15 +470,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (ticketIds.length < 2) return;
     const uid = getUid();
 
-    // 1. Identify tickets to merge
+    // Logic: Combine items from all tickets, create a new one, delete old ones.
     const ticketsToMerge = savedTickets.filter(t => ticketIds.includes(t.id));
     if (ticketsToMerge.length === 0) return;
 
-    // 2. Aggregate Items
     const mergedItems: OrderItem[] = [];
     ticketsToMerge.forEach(ticket => {
         ticket.items.forEach(item => {
-            // Regenerate lineItemId to ensure uniqueness in the new merged list
+            // Important: New unique lineItemId to avoid React key conflicts
             mergedItems.push({ 
                 ...item, 
                 lineItemId: `L${Date.now()}-${Math.random().toString(36).substr(2, 9)}` 
@@ -445,7 +485,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         });
     });
 
-    // 3. Create New Ticket
     const newTicketId = `T${Date.now()}`;
     const newTicket: SavedTicket = {
         id: newTicketId,
@@ -454,32 +493,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         lastModified: Date.now()
     };
 
-    // 4. Update Local State (Optimistic UI)
-    setSavedTicketsState(prev => [
-        ...prev.filter(t => !ticketIds.includes(t.id)),
-        newTicket
-    ]);
+    setSavedTicketsState(prev => [...prev.filter(t => !ticketIds.includes(t.id)), newTicket]);
 
-    // 5. Perform Batch DB Operation
     try {
         const batch = writeBatch(db);
-        
-        // Add new ticket
         batch.set(doc(db, 'users', uid, 'saved_tickets', newTicketId), newTicket);
-
-        // Delete old tickets
         ticketIds.forEach(id => {
             batch.delete(doc(db, 'users', uid, 'saved_tickets', id));
         });
-
         await batch.commit();
     } catch (e) {
         console.error("Merge failed:", e);
-        // Revert local state if needed (advanced error handling)
-        alert("Failed to merge tickets on server. Please check connection.");
+        alert("Failed to merge tickets on server.");
     }
   }, [savedTickets, getUid]);
 
+  // --- CUSTOM GRIDS & TABLES ---
   const addCustomGrid = useCallback(async (grid: CustomGrid) => {
       const newGridWithOrder = { ...grid, order: customGrids.length };
       setCustomGridsState(prev => [...prev, newGridWithOrder]);
@@ -508,12 +537,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const gridsRef = collection(db, 'users', getUid(), 'custom_grids');
       const oldGridsMap = new Map(customGrids.map(g => [g.id, g]));
 
+      // Delete removed grids
       for (const oldGrid of customGrids) {
           if (!newGrids.some(g => g.id === oldGrid.id)) {
               batch.delete(doc(gridsRef, oldGrid.id));
           }
       }
       
+      // Update/Add remaining grids
       for (const newGrid of newGridsWithOrder) {
           const existingGrid = oldGridsMap.get(newGrid.id) as CustomGrid | undefined;
           if (!existingGrid || existingGrid.name !== newGrid.name || existingGrid.order !== newGrid.order) {
@@ -522,15 +553,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       try { await batch.commit(); } 
-      catch (e) { console.error("Failed to save grid changes to DB:", e); alert("Failed to save grid changes."); }
+      catch (e) { console.error(e); alert("Failed to save grid changes."); }
   }, [customGrids, getUid]);
   
   const addTable = useCallback(async (name: string) => {
-    const newTable: Table = { 
-        id: `tbl_${Date.now()}`, 
-        name, 
-        order: tables.length
-    };
+    const newTable: Table = { id: `tbl_${Date.now()}`, name, order: tables.length };
     setTablesState(prev => [...prev, newTable].sort((a,b) => a.order - b.order));
     try { await setDoc(doc(db, 'users', getUid(), 'tables', newTable.id), newTable); }
     catch(e) { console.error(e); alert("Failed to add table."); }
@@ -554,7 +581,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     
     const batch = writeBatch(db);
     const tablesRef = collection(db, 'users', getUid(), 'tables');
-    const oldTablesMap = new Map(tables.map(t => [t.id, t]));
     
     tables.forEach(oldTable => {
         if (!newTables.find(newTable => newTable.id === oldTable.id)) {
@@ -563,10 +589,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     newTablesWithOrder.forEach((table) => {
-        const oldTable = oldTablesMap.get(table.id) as Table | undefined;
-        if (!oldTable || oldTable.name !== table.name || oldTable.order !== table.order) {
-            batch.set(doc(tablesRef, table.id), table, { merge: true });
-        }
+        batch.set(doc(tablesRef, table.id), table, { merge: true });
     });
 
     try { await batch.commit(); } 
@@ -574,14 +597,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [getUid, tables]);
 
 
+  // ==========================================
+  // SECTION: IMPORT / EXPORT UTILITIES
+  // ==========================================
   const replaceItems = useCallback(async (newItems: Item[]) => {
     setIsLoading(true);
     setItemsState(newItems);
-    // Batch deletion might fail if too many docs, but for replacement, we can iterate.
-    // For large imports, a more robust batched approach similar to restoreData is recommended.
     const batch = writeBatch(db);
     const itemsRef = collection(db, 'users', getUid(), 'items');
     try {
+      // Note: This is a destructive operation (delete all, then add all)
       const snapshot = await getDocs(itemsRef);
       snapshot.docs.forEach(doc => batch.delete(doc.ref));
       newItems.forEach(item => batch.set(doc(itemsRef), item));
@@ -635,7 +660,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
           await clearAllData(uid);
           
-          // Collect all write operations
+          // Helper: Collect all operations into a single array
           const operations: { ref: any; data: any }[] = [];
           
           operations.push({ ref: doc(db, 'users', uid, 'config', 'settings'), data: data.settings });
@@ -647,7 +672,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           (data.customGrids || []).forEach(g => operations.push({ ref: doc(db, 'users', uid, 'custom_grids', g.id), data: g }));
           (data.tables || []).forEach(t => operations.push({ ref: doc(db, 'users', uid, 'tables', t.id), data: t }));
 
-          // Commit in chunks of 500
+          // Commit in chunks of 500 (Firestore Batch Limit)
           const chunkSize = 500;
           for (let i = 0; i < operations.length; i += chunkSize) {
               const batch = writeBatch(db);
@@ -659,10 +684,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch(e) { console.error(e); alert("Restore failed."); } finally { setIsLoading(false); }
   }, [getUid]);
 
-  const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
-  const closeDrawer = useCallback(() => setIsDrawerOpen(false), []);
-  const toggleDrawer = useCallback(() => setIsDrawerOpen(prev => !prev), []);
-  
   if (initializationError) return <FirebaseError error={initializationError} />;
 
   const contextValue: AppContextType = {

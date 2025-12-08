@@ -1,8 +1,18 @@
 
 import { User } from 'firebase/auth';
 
+// ==========================================
+// DOMAIN: INVENTORY & ITEMS
+// ==========================================
+
 /**
- * Represents a single sellable item in the inventory.
+ * Represents a single sellable product in the inventory.
+ * @property {string} id - Unique identifier (e.g., 'I12345').
+ * @property {string} name - Display name of the item.
+ * @property {number} price - Unit price in the currency.
+ * @property {number} stock - Current inventory count.
+ * @property {string} imageUrl - Base64 string or URL of the item image.
+ * @property {string} [category] - Optional grouping tag (e.g., 'Drinks').
  */
 export interface Item {
   id: string;
@@ -10,34 +20,42 @@ export interface Item {
   price: number;
   stock: number;
   imageUrl: string;
-  /** Optional category for filtering and organization. */
   category?: string;
 }
 
 /**
- * Represents an item that has been added to the current order, including its quantity.
- * A unique lineItemId allows for multiple lines of the same item in an order.
+ * Represents an item currently inside a shopping cart or order.
+ * Extends the base Item with quantity and a unique line ID.
  */
 export interface OrderItem extends Item {
+  /** Quantity of this item in the cart */
   quantity: number;
-  /** A unique identifier for this specific line item in the order. Essential for allowing multiple lines of the same item. */
+  /** 
+   * A unique ID for this specific line in the cart. 
+   * Essential for distinguishing between two separate lines of the same item 
+   * (e.g., one "Burger" with no onions, one "Burger" with extra cheese).
+   */
   lineItemId: string;
 }
 
+// ==========================================
+// DOMAIN: PAYMENT & TRANSACTIONS
+// ==========================================
+
 /**
- * Defines the available icons for different payment types.
+ * Defines the visual icon used for a payment button.
  */
 export type PaymentTypeIcon = 'cash' | 'upi' | 'card' | 'generic';
 
 /**
- * Defines the behavior of a payment type.
- * 'cash' types are used for transactions where change may be calculated.
- * 'other' types are for exact-amount payments (e.g., card, UPI).
+ * Defines the behavior of a payment method.
+ * - 'cash': Triggers change calculation.
+ * - 'other': Assumes exact amount payment.
  */
 export type PaymentMethodType = 'cash' | 'other';
 
 /**
- * Represents a configurable payment method in the system.
+ * Configuration for a payment method available in the app.
  */
 export interface PaymentType {
   id: string;
@@ -47,13 +65,17 @@ export interface PaymentType {
   enabled: boolean;
 }
 
+/**
+ * Detail for a single part of a split payment.
+ * Used when a bill is paid using multiple methods (e.g., ₹100 Cash + ₹50 Card).
+ */
 export interface SplitPaymentDetail {
   method: string;
   amount: number;
 }
 
 /**
- * Represents a completed transaction record.
+ * Represents a completed, immutable transaction record.
  */
 export interface Receipt {
   id: string;
@@ -61,21 +83,24 @@ export interface Receipt {
   items: OrderItem[];
   total: number;
   paymentMethod: string;
+  /** If the payment was split, details are stored here. */
   splitDetails?: SplitPaymentDetail[];
 }
 
 /**
- * Represents an order that has been saved to be recalled later.
+ * Represents an order temporarily saved to the "Open Tickets" list.
+ * Useful for restaurant table management.
  */
 export interface SavedTicket {
   id: string;
   name: string;
   items: OrderItem[];
+  /** Timestamp of when the ticket was last updated */
   lastModified?: number;
 }
 
 /**
- * Represents a configurable table for quick-saving tickets.
+ * Configuration for a quick-select table button (e.g., "Table 1").
  */
 export interface Table {
   id: string;
@@ -83,13 +108,15 @@ export interface Table {
   order: number;
 }
 
-/** Defines the connection interface type for a printer. */
+// ==========================================
+// DOMAIN: HARDWARE & CONFIG
+// ==========================================
+
 export type PrinterInterfaceType = 'Bluetooth' | 'Ethernet' | 'USB';
-/** Defines the paper width for a receipt printer. */
 export type PrinterPaperWidth = '58mm' | '80mm';
 
 /**
- * Represents a configured printer device.
+ * Configuration for a thermal receipt printer.
  */
 export interface Printer {
   id:string;
@@ -100,7 +127,7 @@ export interface Printer {
 }
 
 /**
- * Represents the application's configurable settings.
+ * Global application settings.
  */
 export interface AppSettings {
   taxEnabled: boolean;
@@ -108,23 +135,26 @@ export interface AppSettings {
   storeName?: string;
   storeAddress?: string;
   receiptFooter?: string;
-  reportsPIN?: string; // New field for security
+  /** Encrypted or plain-text PIN for accessing restricted areas */
+  reportsPIN?: string; 
 }
 
 /**
- * Represents a custom grid layout for the sales screen.
+ * Represents a customizable grid layout for the Sales screen.
  */
 export interface CustomGrid {
   id: string;
   name: string;
-  /** An array of 20 item IDs or nulls representing the 5x4 grid layout. */
+  /** 
+   * An array representing the 5x4 grid slots. 
+   * Contains Item IDs or null for empty slots.
+   */
   itemIds: (string | null)[];
-  /** The display order of the grid tab. */
   order?: number;
 }
 
 /**
- * Defines the structure for a full application data backup.
+ * Structure for the full JSON backup file.
  */
 export interface BackupData {
   version: string;
@@ -139,14 +169,20 @@ export interface BackupData {
   tables?: Table[];
 }
 
+// ==========================================
+// DOMAIN: STATE MANAGEMENT
+// ==========================================
 
 /**
- * The shape of the global application context.
- * Provides state and actions to all components.
+ * The Shape of the Global App Context.
+ * Contains all state and actions available throughout the application.
  */
 export interface AppContextType {
+  // --- Authentication ---
   user: User | null;
   signOut: () => void;
+  
+  // --- UI State ---
   isDrawerOpen: boolean;
   openDrawer: () => void;
   closeDrawer: () => void;
@@ -155,20 +191,20 @@ export interface AppContextType {
   setHeaderTitle: (title: string) => void;
   theme: 'light' | 'dark';
   setTheme: (theme: 'light' | 'dark') => void;
-  
-  // Onboarding
   showOnboarding: boolean;
   completeOnboarding: () => Promise<boolean>;
-
-  // Data
   isLoading: boolean;
+
+  // --- Configuration ---
   settings: AppSettings;
   updateSettings: (newSettings: Partial<AppSettings>) => void;
   
+  // --- Hardware ---
   printers: Printer[];
   addPrinter: (printer: Printer) => void;
   removePrinter: (printerId: string) => void;
 
+  // --- Master Data (CRUD) ---
   paymentTypes: PaymentType[];
   addPaymentType: (paymentType: Omit<PaymentType, 'id' | 'enabled' | 'type'>) => void;
   updatePaymentType: (paymentType: PaymentType) => void;
@@ -202,12 +238,11 @@ export interface AppContextType {
   setTables: (tables: Table[]) => void;
   removeTable: (tableId: string) => void;
 
-  // Sales Screen State
+  // --- Sales Screen State ---
   activeGridId: string;
   setActiveGridId: (id: string) => void;
 
-  // --- START: Global Ticket State ---
-  // The active order, managed globally to persist across UI changes like theme switching.
+  // --- Cart / Ticket Logic ---
   currentOrder: OrderItem[];
   addToOrder: (item: Item) => void;
   removeFromOrder: (lineItemId: string) => void;
@@ -215,13 +250,12 @@ export interface AppContextType {
   updateOrderItemQuantity: (lineItemId: string, newQuantity: number) => void;
   clearOrder: () => void;
   loadOrder: (items: OrderItem[]) => void;
-  // --- END: Global Ticket State ---
   
-  // Reports Security
+  // --- Security ---
   isReportsUnlocked: boolean;
   setReportsUnlocked: (unlocked: boolean) => void;
 
-  // Backup
+  // --- Backup & Utilities ---
   exportData: () => void;
   restoreData: (data: BackupData) => void;
   exportItemsCsv: () => void;
