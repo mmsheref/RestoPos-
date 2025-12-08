@@ -260,4 +260,7 @@ export interface AppContextType {
   restoreData: (data: BackupData) => void;
   exportItemsCsv: () => void;
   replaceItems: (items: Item[]) => void;
+  
+  // --- Status ---
+  pendingSyncCount: number;
 }

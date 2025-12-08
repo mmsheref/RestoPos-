@@ -1,7 +1,10 @@
+
 import React from 'react';
+import { useAppContext } from '../../../context/AppContext';
 
 const AboutCard: React.FC = () => {
-  const appVersion = '2.1.0'; // Example version
+  const { pendingSyncCount } = useAppContext();
+  const appVersion = '2.2.0'; 
 
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
@@ -15,14 +18,25 @@ const AboutCard: React.FC = () => {
           <span className="font-medium text-text-primary">Environment</span>
           <span>Web (Browser)</span>
         </div>
-        <div className="flex justify-between">
+        <div className="flex justify-between items-center">
           <span className="font-medium text-text-primary">Data Status</span>
           <span className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-            </span>
-            Online & Synced
+            {pendingSyncCount > 0 ? (
+                <>
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">Syncing {pendingSyncCount} items...</span>
+                </>
+            ) : (
+                <>
+                    <span className="relative flex h-2 w-2">
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    <span className="text-green-600 dark:text-green-400 font-medium">Online & Synced</span>
+                </>
+            )}
           </span>
         </div>
       </div>
