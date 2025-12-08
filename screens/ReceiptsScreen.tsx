@@ -181,6 +181,18 @@ const ReceiptsScreen: React.FC = () => {
             <hr className="my-6 border-border" />
             <div className="space-y-2 text-sm text-text-secondary">
               <div className="flex justify-between"><p>Payment Method</p><p className="font-medium text-text-primary">{selectedReceipt.paymentMethod}</p></div>
+              
+              {selectedReceipt.splitDetails && selectedReceipt.splitDetails.length > 0 && (
+                  <div className="pl-4 py-2 bg-surface-muted rounded-md text-xs space-y-1 my-2">
+                      {selectedReceipt.splitDetails.map((detail, idx) => (
+                          <div key={idx} className="flex justify-between">
+                              <span>{detail.method}</span>
+                              <span className="font-mono">₹{detail.amount.toFixed(2)}</span>
+                          </div>
+                      ))}
+                  </div>
+              )}
+
               <div className="flex justify-between"><p>Date</p><p>{selectedReceipt.date.toLocaleDateString()}</p></div>
               <div className="flex justify-between"><p>Time</p><p>{selectedReceipt.date.toLocaleTimeString()}</p></div>
               <div className="flex justify-between"><p>Receipt ID</p><p>#{selectedReceipt.id}</p></div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { OrderItem, SavedTicket, Item, CustomGrid } from '../types';
+import type { OrderItem, SavedTicket, Item, CustomGrid, SplitPaymentDetail } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { printBill } from '../utils/printerHelper';
@@ -127,11 +127,18 @@ const SalesScreen: React.FC = () => {
   const tax = useMemo(() => settings.taxEnabled ? subtotal * (settings.taxRate / 100) : 0, [subtotal, settings]);
   const total = useMemo(() => subtotal + tax, [subtotal, tax]);
   
-  const handleProcessPayment = useCallback((method: string, tendered: number) => {
+  const handleProcessPayment = useCallback((method: string, tendered: number, splitDetails?: SplitPaymentDetail[]) => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
     const receiptDate = new Date();
-    addReceipt({ id: receiptId, date: receiptDate, items: currentOrder, total, paymentMethod: method });
+    addReceipt({ 
+        id: receiptId, 
+        date: receiptDate, 
+        items: currentOrder, 
+        total, 
+        paymentMethod: method,
+        splitDetails 
+    });
     setPaymentResult({ method, change: tendered - total, receiptId, date: receiptDate });
   }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
   
@@ -388,15 +395,17 @@ const SalesScreen: React.FC = () => {
                 <div className="md:hidden absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-background via-background to-transparent z-10 pb-safe-bottom">
                     <button 
                         onClick={() => setIsTicketVisible(true)}
-                        className="w-full bg-primary text-primary-content rounded-xl shadow-lg flex items-center justify-between p-4 active:scale-[0.98] transition-transform"
+                        className="w-full bg-primary text-primary-content rounded-xl shadow-lg flex items-center justify-center p-4 active:scale-[0.98] transition-transform"
                     >
-                        <div className="flex items-center gap-3">
-                            <span className="bg-white/20 px-2 py-1 rounded-md text-sm font-bold">
-                                {currentOrder.reduce((acc, item) => acc + item.quantity, 0)}
-                            </span>
-                            <span className="font-bold">View Cart</span>
+                        <div className="flex items-center gap-3 w-full justify-between">
+                            <div className="flex items-center gap-3">
+                                <span className="bg-white/20 px-2 py-1 rounded-md text-sm font-bold">
+                                    {currentOrder.reduce((acc, item) => acc + item.quantity, 0)}
+                                </span>
+                                <span className="font-bold">View Cart</span>
+                            </div>
+                            <span className="font-bold text-lg">₹{total.toFixed(2)}</span>
                         </div>
-                        <span className="font-bold text-lg">₹{total.toFixed(2)}</span>
                     </button>
                 </div>
             )}
