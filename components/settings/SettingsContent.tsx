@@ -22,6 +22,7 @@ import StoreInfoCard from './cards/StoreInfoCard';
 import DataManagementCard from './cards/DataManagementCard';
 import TablesCard from './cards/TablesCard';
 import SecurityCard from './cards/SecurityCard';
+import ReceiptDesignCard from './cards/ReceiptDesignCard';
 
 interface SettingsContentProps {
     activeCategory: SettingsCategory;
@@ -62,7 +63,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
 
     const handleTestPrinter = async (printer: Printer) => {
       setTestingPrinterId(printer.id);
-      const result = await testPrint(printer);
+      const result = await testPrint(printer, settings); // Passed settings here for design test
       setTestingPrinterId(null);
       if (result.success) alert("Test print sent successfully!");
       else alert(`Print Failed:\n\n${result.message}`);
@@ -126,6 +127,7 @@ const SettingsContent: React.FC<SettingsContentProps> = ({ activeCategory, onBac
             case 'financial': return <FinancialCard settings={settings} updateSettings={updateSettings} />;
             case 'payment_types': return <PaymentTypesCard paymentTypes={paymentTypes} onAdd={() => setIsPaymentTypeModalOpen(true)} onToggle={handleTogglePaymentType} onRemove={removePaymentType} />;
             case 'tables': return <TablesCard tables={tables} setTables={setTables} onAdd={handleOpenAddTableModal} onEdit={handleOpenEditTableModal} onRemove={removeTable} />;
+            case 'receipt_design': return <ReceiptDesignCard settings={settings} updateSettings={updateSettings} />;
             case 'printers': return <PrintersCard printers={printers} onAdd={() => setIsPrinterModalOpen(true)} onTest={handleTestPrinter} onRemove={setPrinterToRemove} testingPrinterId={testingPrinterId} />;
             case 'store_info': return <StoreInfoCard settings={settings} updateSettings={updateSettings} />;
             case 'security': return <SecurityCard settings={settings} updateSettings={updateSettings} />;

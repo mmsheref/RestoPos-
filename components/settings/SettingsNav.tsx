@@ -9,7 +9,8 @@ import {
     StoreIcon,
     DatabaseIcon,
     TableIcon,
-    LockIcon
+    LockIcon,
+    ReceiptIcon
 } from '../../constants';
 
 interface SettingsNavProps {
@@ -21,6 +22,7 @@ const navItems: { id: SettingsCategory; label: string; Icon: React.FC<{className
     { id: 'appearance', label: 'Appearance', Icon: PaintBrushIcon },
     { id: 'financial', label: 'Financial', Icon: DollarSignIcon },
     { id: 'payment_types', label: 'Payment Types', Icon: CreditCardIcon },
+    { id: 'receipt_design', label: 'Receipt Design', Icon: ReceiptIcon },
     { id: 'tables', label: 'Tables', Icon: TableIcon },
     { id: 'printers', label: 'Printers', Icon: PrintIcon },
     { id: 'store_info', label: 'Store Information', Icon: StoreIcon },
