@@ -33,7 +33,7 @@ const NavDrawer: React.FC = () => {
       >
         <div className="p-6 border-b border-neutral-800 bg-neutral-900/50">
           <h2 className="text-2xl font-bold text-white truncate tracking-tight">
-            {settings.storeName || 'RestoPos'}
+            {settings.storeName || 'POS Menu'}
           </h2>
         </div>
         <nav className="flex-1 py-4 overflow-y-auto">

@@ -1,8 +1,7 @@
-
 import React from 'react';
 
 const AboutCard: React.FC = () => {
-  const appVersion = '2.2.0'; 
+  const appVersion = '2.1.0'; // Example version
 
   return (
     <div className="bg-surface p-6 rounded-lg shadow-sm border border-border">
@@ -28,7 +27,7 @@ const AboutCard: React.FC = () => {
         </div>
       </div>
        <div className="mt-4 pt-4 border-t border-border text-xs text-text-muted text-center">
-          <p>&copy; {new Date().getFullYear()} RestoPos. All Rights Reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Restaurant POS. All Rights Reserved.</p>
        </div>
     </div>
   );

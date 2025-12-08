@@ -1,11 +1,8 @@
-
 # Changelog
 
 This log tracks the major features, improvements, and bug fixes that have led to the current stable version.
 
 ### **v2.2.0 (Stable)**
--   **Rename:** Application renamed to **RestoPos**.
--   **Feature:** Implemented robust **Hardware Back Button** handling for Android. The back button now properly closes the navigation drawer and navigates back through history. On the main screens, it prompts for exit confirmation.
 -   **Feature:** Added "Quick Select" **Table Management** in settings, allowing full customization of table names for saving tickets.
 -   **Feature:** Added an **"Exact Cash"** button to the payment screen for faster one-tap cash transactions.
 -   **Improvement:** Centralized the app version number to `2.2.0` for consistency across the UI and data backups.
