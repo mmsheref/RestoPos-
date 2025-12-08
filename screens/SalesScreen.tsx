@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import type { OrderItem, SavedTicket, Item, CustomGrid, SplitPaymentDetail } from '../types';
+import type { OrderItem, SavedTicket, Item, CustomGrid, SplitPaymentDetail, Receipt } from '../types';
 import { useAppContext } from '../context/AppContext';
 import { useDebounce } from '../hooks/useDebounce';
 import { printBill } from '../utils/printerHelper';
@@ -131,14 +131,21 @@ const SalesScreen: React.FC = () => {
     if (editingTicket) removeTicket(editingTicket.id);
     const receiptId = `R${Date.now()}`;
     const receiptDate = new Date();
-    addReceipt({ 
+    
+    // Construct receipt safely to avoid undefined values
+    const newReceipt: Receipt = { 
         id: receiptId, 
         date: receiptDate, 
         items: currentOrder, 
         total, 
-        paymentMethod: method,
-        splitDetails 
-    });
+        paymentMethod: method 
+    };
+
+    if (splitDetails && splitDetails.length > 0) {
+        newReceipt.splitDetails = splitDetails;
+    }
+
+    addReceipt(newReceipt);
     setPaymentResult({ method, change: tendered - total, receiptId, date: receiptDate });
   }, [addReceipt, currentOrder, editingTicket, removeTicket, total]);
   
