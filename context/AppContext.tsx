@@ -89,6 +89,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [headerTitle, setHeaderTitle] = useState('');
   const [isReportsUnlocked, setReportsUnlocked] = useState(false); // Session-based security
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
@@ -727,7 +739,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
       exportData, restoreData, exportItemsCsv, replaceItems,
       isReportsUnlocked, setReportsUnlocked,
-      pendingSyncCount
+      pendingSyncCount,
+      isOnline
   };
 
   return (

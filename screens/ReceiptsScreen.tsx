@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { Receipt, PaymentTypeIcon } from '../types';
 import { useAppContext } from '../context/AppContext';
-import { SearchIcon, PrintIcon, MailIcon, RefundIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon, TrashIcon } from '../constants';
+import { SearchIcon, PrintIcon, MailIcon, ArrowLeftIcon, ReceiptIcon as ReceiptIconPlaceholder, MenuIcon, ThreeDotsIcon, PaymentMethodIcon, TrashIcon } from '../constants';
 import { printReceipt } from '../utils/printerHelper';
 import { useDebounce } from '../hooks/useDebounce';
 import PinVerifyModal from '../components/modals/PinVerifyModal';
@@ -143,9 +143,6 @@ const ReceiptsScreen: React.FC = () => {
                    </button>
                    <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted" role="menuitem">
                      <MailIcon className="h-5 w-5" /> Email
-                   </button>
-                   <button className="w-full text-left flex items-center gap-3 px-4 py-2 text-sm text-text-primary hover:bg-surface-muted" role="menuitem">
-                     <RefundIcon className="h-5 w-5" /> Refund
                    </button>
                    <button 
                       onClick={() => { setIsMenuOpen(false); setIsPinModalOpen(true); }} 

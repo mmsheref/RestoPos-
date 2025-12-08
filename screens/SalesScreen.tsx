@@ -132,11 +132,17 @@ const SalesScreen: React.FC = () => {
     const receiptId = `R${Date.now()}`;
     const receiptDate = new Date();
     
+    // OPTIMIZATION: Remove large image data from receipt items to save storage space
+    const optimizedItems = currentOrder.map(item => ({
+        ...item,
+        imageUrl: '' // Strip base64 string
+    }));
+
     // Construct receipt safely to avoid undefined values
     const newReceipt: Receipt = { 
         id: receiptId, 
         date: receiptDate, 
-        items: currentOrder, 
+        items: optimizedItems, 
         total, 
         paymentMethod: method 
     };
