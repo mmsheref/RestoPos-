@@ -129,6 +129,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [savedTickets, setSavedTicketsState] = useState<SavedTicket[]>([]);
   const [tables, setTablesState] = useState<Table[]>([]);
   
+  // Status State
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  
   // Sales Screen Persistence
   const [activeGridId, setActiveGridIdState] = useState<string>(() => {
       return localStorage.getItem(ACTIVE_GRID_KEY) || 'All';
@@ -284,14 +287,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             fetchAllDataOnce();
 
             // 4. Real-time Listener for Receipts (Limited to 100 for performance)
+            // Added includeMetadataChanges to track pending writes (offline/syncing status)
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
-            const unsubReceipts = onSnapshot(qReceipts, (snapshot) => {
+            const unsubReceipts = onSnapshot(qReceipts, { includeMetadataChanges: true }, (snapshot) => {
                 const receiptsData = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 setReceiptsState(prev => {
                     // Merge new receipts with existing state safely
                     const combined = [...receiptsData, ...prev.filter(p => !receiptsData.some(n => n.id === p.id))];
                     return combined.sort((a,b) => b.date.getTime() - a.date.getTime());
                 });
+                
+                // Track unsynced items
+                const pendingCount = snapshot.docs.filter(doc => doc.metadata.hasPendingWrites).length;
+                setPendingSyncCount(pendingCount);
                 
                 // Track pagination cursor
                 if (snapshot.docs.length > 0) setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
@@ -309,6 +317,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setSettingsState(DEFAULT_SETTINGS);
             setCurrentOrder([]);
             setIsLoading(false);
+            setPendingSyncCount(0);
             localStorage.removeItem(ITEMS_CACHE_KEY);
             localStorage.removeItem(SETTINGS_CACHE_KEY);
             localStorage.removeItem(GRIDS_CACHE_KEY);
@@ -704,7 +713,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       activeGridId, setActiveGridId,
       currentOrder, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder,
       exportData, restoreData, exportItemsCsv, replaceItems,
-      isReportsUnlocked, setReportsUnlocked
+      isReportsUnlocked, setReportsUnlocked,
+      pendingSyncCount
   };
 
   return (

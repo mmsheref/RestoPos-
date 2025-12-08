@@ -1,13 +1,25 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
-import { NAV_LINKS, SignOutIcon, APP_VERSION } from '../constants';
+import { NAV_LINKS, SignOutIcon, APP_VERSION, SyncIcon, OfflineIcon, CheckIcon } from '../constants';
 import ConfirmModal from './modals/ConfirmModal';
 
 const NavDrawer: React.FC = () => {
-  const { isDrawerOpen, closeDrawer, user, signOut, settings } = useAppContext();
+  const { isDrawerOpen, closeDrawer, user, signOut, settings, pendingSyncCount } = useAppContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleSignOutClick = () => {
     setIsSignOutModalOpen(true);
@@ -58,6 +70,32 @@ const NavDrawer: React.FC = () => {
             ))}
           </ul>
         </nav>
+        
+        {/* Sync Status Indicator */}
+        <div className="px-6 py-2">
+            <div className={`flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg ${
+                !isOnline ? 'bg-neutral-800 text-neutral-400' :
+                pendingSyncCount > 0 ? 'bg-amber-900/30 text-amber-400' :
+                'bg-green-900/20 text-green-400'
+            }`}>
+                {!isOnline ? (
+                    <>
+                        <OfflineIcon className="h-4 w-4" />
+                        <span>Offline</span>
+                    </>
+                ) : pendingSyncCount > 0 ? (
+                    <>
+                        <SyncIcon className="h-4 w-4 animate-spin" />
+                        <span>Syncing ({pendingSyncCount} pending)...</span>
+                    </>
+                ) : (
+                    <>
+                        <CheckIcon className="h-4 w-4" />
+                        <span>All Data Synced</span>
+                    </>
+                )}
+            </div>
+        </div>
         
         <div className="px-6 py-4 mt-auto text-center border-t border-neutral-800">
             <p className="text-xs text-neutral-500">Version {APP_VERSION}</p>
