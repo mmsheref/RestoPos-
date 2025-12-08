@@ -47,6 +47,10 @@ export interface PaymentType {
   enabled: boolean;
 }
 
+export interface SplitPaymentDetail {
+  method: string;
+  amount: number;
+}
 
 /**
  * Represents a completed transaction record.
@@ -57,6 +61,7 @@ export interface Receipt {
   items: OrderItem[];
   total: number;
   paymentMethod: string;
+  splitDetails?: SplitPaymentDetail[];
 }
 
 /**

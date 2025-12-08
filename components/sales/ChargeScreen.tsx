@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { OrderItem, PaymentType } from '../../types';
+import type { OrderItem, PaymentType, SplitPaymentDetail } from '../../types';
 import { useAppContext } from '../../context/AppContext';
 import { printReceipt } from '../../utils/printerHelper';
-import { UserIcon, ArrowLeftIcon, CheckIcon, PrintIcon, AnimatedCheckIcon, PaymentMethodIcon, ItemsIcon } from '../../constants';
+import { UserIcon, ArrowLeftIcon, CheckIcon, PrintIcon, AnimatedCheckIcon, PaymentMethodIcon, ItemsIcon, SplitIcon, PlusIcon, TrashIcon, CloseIcon } from '../../constants';
 
 // --- Sub-components to prevent re-rendering ---
 
@@ -116,12 +117,13 @@ interface PaymentWorkspaceProps {
     handleProcessOtherPayment: (methodName: string) => void;
     uniqueQuickCash: number[];
     onProcessPayment: (method: string, tendered: number) => void;
+    onSplitClick: () => void;
 }
 
 const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
     onBack, total, otherPaymentTypes, cashPaymentType,
     inputRef, cashTendered, handleFocus, handleCashChange, handleProcessCashPayment, handleProcessOtherPayment,
-    uniqueQuickCash, onProcessPayment
+    uniqueQuickCash, onProcessPayment, onSplitClick
 }) => (
     <div className="flex-1 flex flex-col h-full bg-background relative">
       {/* Mobile Header */}
@@ -131,15 +133,29 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
           Back
         </button>
         <span className="font-bold text-lg">Checkout</span>
-        <div className="w-8"></div> {/* Spacer */}
+        <button 
+            onClick={onSplitClick} 
+            className="flex items-center gap-1 bg-surface-muted text-text-primary px-3 py-1.5 rounded-lg border border-border hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-xs font-bold uppercase tracking-wide"
+        >
+            <SplitIcon className="h-4 w-4" /> Split
+        </button>
       </header>
       
       {/* Desktop Header */}
       <header className="hidden md:flex flex-shrink-0 h-16 items-center justify-between px-6 border-b border-border bg-surface">
-        <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-muted transition-colors">
-          <ArrowLeftIcon className="h-5 w-5" />
-          Back to Sales
-        </button>
+        <div className="flex items-center gap-4">
+            <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold px-3 py-1.5 rounded-lg hover:bg-surface-muted transition-colors">
+            <ArrowLeftIcon className="h-5 w-5" />
+            Back to Sales
+            </button>
+            <button 
+                onClick={onSplitClick} 
+                className="flex items-center gap-2 bg-white dark:bg-gray-800 text-text-primary px-4 py-2 rounded-lg border border-border hover:border-primary/50 hover:text-primary transition-all shadow-sm font-bold text-sm"
+            >
+                <SplitIcon className="h-4 w-4" />
+                SPLIT PAYMENT
+            </button>
+        </div>
         <div className="flex items-center gap-2">
              <UserIcon className="h-5 w-5 text-text-muted" />
              <span className="text-sm text-text-secondary">Cashier</span>
@@ -229,6 +245,160 @@ const PaymentWorkspace: React.FC<PaymentWorkspaceProps> = ({
       </div>
     </div>
 );
+
+// --- SPLIT PAYMENT WORKSPACE ---
+
+interface SplitPaymentWorkspaceProps {
+    total: number;
+    paymentTypes: PaymentType[];
+    onBack: () => void;
+    onComplete: (details: SplitPaymentDetail[]) => void;
+}
+
+const SplitPaymentWorkspace: React.FC<SplitPaymentWorkspaceProps> = ({ total, paymentTypes, onBack, onComplete }) => {
+    const [rows, setRows] = useState<SplitPaymentDetail[]>([]);
+
+    // Initial Setup: One row with full amount
+    // Using dependency on paymentTypes to re-init if they load, but we rely on the parent
+    // to pass a stable or memoized array to prevent infinite loops.
+    useEffect(() => {
+        // Safe default method selection
+        const defaultMethod = paymentTypes.length > 0 ? paymentTypes[0].name : 'Cash';
+        setRows([{ method: defaultMethod, amount: total }]);
+    }, [total, paymentTypes]);
+
+    const totalEntered = useMemo(() => {
+        return rows.reduce((sum, row) => sum + (row.amount || 0), 0);
+    }, [rows]);
+
+    // Use epsilon for float comparison safety
+    const remaining = parseFloat((total - totalEntered).toFixed(2));
+    const isValid = Math.abs(remaining) < 0.01 && rows.every(r => r.amount > 0 && r.method);
+
+    const handleRowChange = (index: number, field: keyof SplitPaymentDetail, value: any) => {
+        const newRows = [...rows];
+        newRows[index] = { ...newRows[index], [field]: value };
+        setRows(newRows);
+    };
+
+    const handleRemoveRow = (index: number) => {
+        setRows(rows.filter((_, i) => i !== index));
+    };
+
+    const handleAddRemaining = () => {
+        if (remaining <= 0) return;
+        
+        // Smart method selection: try to pick one that hasn't been used yet
+        const usedMethods = new Set(rows.map(r => r.method));
+        const availableMethods = paymentTypes.map(pt => pt.name);
+        const nextMethod = availableMethods.find(m => !usedMethods.has(m)) || availableMethods[0] || 'Cash';
+        
+        setRows([...rows, { method: nextMethod, amount: remaining }]);
+    };
+
+    return (
+        <div className="flex-1 flex flex-col h-full bg-background relative">
+            {/* Header */}
+            <header className="flex-shrink-0 h-16 flex items-center px-4 md:px-6 bg-surface border-b border-border">
+                <button onClick={onBack} className="flex items-center gap-2 text-text-secondary hover:text-text-primary font-semibold mr-4">
+                    <ArrowLeftIcon className="h-5 w-5" />
+                    <span className="hidden md:inline">Cancel Split</span>
+                </button>
+                <h2 className="text-xl font-bold text-text-primary flex-grow">Split Payment</h2>
+            </header>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+                <div className="max-w-2xl mx-auto space-y-6">
+                    
+                    {/* Remaining Balance Hero */}
+                    <div className={`p-6 rounded-2xl border-2 text-center transition-colors ${Math.abs(remaining) < 0.01 ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : 'bg-surface border-red-500'}`}>
+                        <p className="text-sm font-bold uppercase tracking-wider text-text-secondary mb-1">Remaining Balance</p>
+                        <div className={`text-5xl md:text-6xl font-mono font-bold ${Math.abs(remaining) < 0.01 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                            ₹{remaining.toFixed(2)}
+                        </div>
+                    </div>
+
+                    {/* Rows */}
+                    <div className="space-y-3">
+                        {rows.map((row, index) => (
+                            <div key={index} className="flex gap-3 items-center bg-surface p-3 rounded-xl border border-border shadow-sm">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-text-muted mb-1 ml-1">Method</label>
+                                    <select
+                                        value={row.method}
+                                        onChange={(e) => handleRowChange(index, 'method', e.target.value)}
+                                        className="w-full p-3 border border-border rounded-lg bg-background text-text-primary focus:ring-2 focus:ring-primary font-medium"
+                                    >
+                                        {paymentTypes.filter(pt => pt.enabled).map(pt => (
+                                            <option key={pt.id} value={pt.name}>{pt.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="w-40">
+                                    <label className="block text-xs font-bold text-text-muted mb-1 ml-1">Amount</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-bold">₹</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={row.amount}
+                                            onChange={(e) => handleRowChange(index, 'amount', parseFloat(e.target.value) || 0)}
+                                            className="w-full p-3 pl-7 border border-border rounded-lg bg-background text-text-primary focus:ring-2 focus:ring-primary font-mono text-right font-bold"
+                                        />
+                                    </div>
+                                </div>
+                                {rows.length > 1 && (
+                                    <div className="pt-5">
+                                        <button 
+                                            onClick={() => handleRemoveRow(index)}
+                                            className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                            title="Remove Payment"
+                                        >
+                                            <TrashIcon className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Add Remaining Shortcut */}
+                    {remaining > 0.01 && (
+                        <button
+                            onClick={handleAddRemaining}
+                            className="w-full py-4 border-2 border-dashed border-primary/30 text-primary rounded-xl hover:bg-primary/5 flex items-center justify-center gap-2 font-bold transition-colors"
+                        >
+                            <PlusIcon className="h-5 w-5" />
+                            Add Remaining Amount (₹{remaining.toFixed(2)})
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex-shrink-0 p-4 border-t border-border bg-surface z-20 pb-safe-bottom">
+                <div className="max-w-2xl mx-auto flex gap-4">
+                    <button 
+                        onClick={onBack} 
+                        className="flex-1 py-4 bg-surface-muted text-text-secondary font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={() => isValid && onComplete(rows)}
+                        disabled={!isValid}
+                        className="flex-[2] py-4 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                    >
+                        <CheckIcon className="h-5 w-5" />
+                        Complete Transaction
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 
 interface ChangeWorkspaceProps {
@@ -323,7 +493,7 @@ interface ChargeScreenProps {
   tax: number;
   subtotal: number;
   onBack: () => void;
-  onProcessPayment: (method: string, tendered: number) => void;
+  onProcessPayment: (method: string, tendered: number, splitDetails?: SplitPaymentDetail[]) => void;
   onNewSale: () => void;
   paymentResult: { method: string, change: number, receiptId: string, date: Date } | null;
 }
@@ -332,6 +502,10 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
   const { settings, printers, paymentTypes } = useAppContext();
   const [cashTendered, setCashTendered] = useState(total.toFixed(2));
   const [isPrinting, setIsPrinting] = useState(false);
+  
+  // View State: 'standard' | 'split'
+  const [viewMode, setViewMode] = useState<'standard' | 'split'>('standard');
+
   const hasBeenFocused = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -353,6 +527,11 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
   }, [paymentTypes]);
 
   const otherPaymentTypes = useMemo(() => paymentTypes.filter(p => p.id !== 'cash' && p.enabled), [paymentTypes]);
+
+  // FIX: Memoize the combined list passed to the Split Workspace to prevent infinite re-renders/resets
+  const splitPaymentTypes = useMemo(() => {
+      return [...(cashPaymentType ? [cashPaymentType] : []), ...otherPaymentTypes];
+  }, [cashPaymentType, otherPaymentTypes]);
 
 
   const uniqueQuickCash = useMemo(() => {
@@ -417,6 +596,11 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
     if (!result.success) alert(`Print Failed: ${result.message}`);
   };
   
+  const handleSplitConfirm = (details: SplitPaymentDetail[]) => {
+      const methodString = `Split (${details.map(d => d.method).join(', ')})`;
+      onProcessPayment(methodString, total, details);
+  };
+
   return (
     <div className="flex flex-col md:flex-row w-full h-full bg-background overflow-hidden">
       {/* Always render StaticTicketPanel for split view consistency */}
@@ -437,21 +621,29 @@ const ChargeScreen: React.FC<ChargeScreenProps> = ({ orderItems, total, tax, sub
             handlePrintReceipt={handlePrintReceipt}
             onNewSale={onNewSale}
           />
+        ) : viewMode === 'split' ? (
+            <SplitPaymentWorkspace 
+                total={total}
+                paymentTypes={splitPaymentTypes} 
+                onBack={() => setViewMode('standard')}
+                onComplete={handleSplitConfirm}
+            />
         ) : (
-          <PaymentWorkspace
-            onBack={onBack}
-            total={total}
-            otherPaymentTypes={otherPaymentTypes}
-            cashPaymentType={cashPaymentType}
-            inputRef={inputRef}
-            cashTendered={cashTendered}
-            handleFocus={handleFocus}
-            handleCashChange={handleCashChange}
-            handleProcessCashPayment={handleProcessCashPayment}
-            handleProcessOtherPayment={handleProcessOtherPayment}
-            uniqueQuickCash={uniqueQuickCash}
-            onProcessPayment={onProcessPayment}
-          />
+            <PaymentWorkspace
+                onBack={onBack}
+                total={total}
+                otherPaymentTypes={otherPaymentTypes}
+                cashPaymentType={cashPaymentType}
+                inputRef={inputRef}
+                cashTendered={cashTendered}
+                handleFocus={handleFocus}
+                handleCashChange={handleCashChange}
+                handleProcessCashPayment={handleProcessCashPayment}
+                handleProcessOtherPayment={handleProcessOtherPayment}
+                uniqueQuickCash={uniqueQuickCash}
+                onProcessPayment={onProcessPayment}
+                onSplitClick={() => setViewMode('split')}
+            />
         )}
       </div>
     </div>
