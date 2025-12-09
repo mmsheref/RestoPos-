@@ -42,46 +42,47 @@ const SalesHeader: React.FC<SalesHeaderProps> = ({ openDrawer, searchQuery, onSe
   };
 
   return (
-    <header className="bg-surface shadow-sm w-full z-10 flex-shrink-0 h-16 flex items-center justify-between px-4">
+    <header className="bg-surface shadow-sm border-b border-border w-full z-10 flex-shrink-0 h-16 flex items-center justify-between px-4 transition-all">
       {isSearching ? (
-        <div className="flex items-center w-full gap-2">
+        <div className="flex items-center w-full gap-3 animate-fadeIn">
           <div className="relative flex-grow">
+            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-muted h-5 w-5 pointer-events-none" />
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search all items..."
+              placeholder="Search item name..."
               value={searchQuery}
               onChange={handleQueryChange}
-              className="w-full h-10 pl-3 pr-10 bg-surface-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary text-text-primary"
+              className="w-full h-11 pl-10 pr-10 bg-surface-muted rounded-xl border-transparent focus:bg-background focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-text-primary placeholder:text-text-muted"
             />
             {searchQuery && (
                 <button 
                     onClick={handleClearText}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-text-muted hover:text-text-primary bg-surface-muted rounded-full"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-text-muted hover:text-text-primary bg-surface border border-border rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     aria-label="Clear text"
                 >
-                    <CloseIcon className="h-4 w-4" />
+                    <CloseIcon className="h-3 w-3" />
                 </button>
             )}
           </div>
           <button
             onClick={handleCloseSearch}
-            className="p-2 text-text-secondary hover:text-text-primary font-medium text-sm"
+            className="px-3 py-2 text-text-secondary hover:text-text-primary font-semibold text-sm rounded-lg hover:bg-surface-muted transition-colors"
           >
             Cancel
           </button>
         </div>
       ) : (
         <div className="flex items-center justify-between w-full">
-          <button onClick={openDrawer} className="p-2 text-text-secondary hover:text-text-primary">
-            <MenuIcon className="h-6 w-6" />
-          </button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold text-text-primary">
-              Sales
-            </h1>
+          <div className="flex items-center gap-3">
+             <button onClick={openDrawer} className="p-2 -ml-2 text-text-secondary hover:text-text-primary rounded-full hover:bg-surface-muted transition-colors">
+                <MenuIcon className="h-6 w-6" />
+             </button>
+             <h1 className="text-xl font-bold text-text-primary tracking-tight">
+               Sales
+             </h1>
           </div>
-          <button onClick={() => setIsSearching(true)} className="p-2 text-text-secondary hover:text-text-primary">
+          <button onClick={() => setIsSearching(true)} className="p-2.5 text-text-secondary hover:text-primary bg-surface-muted hover:bg-primary/10 rounded-xl transition-all">
             <SearchIcon className="h-5 w-5" />
           </button>
         </div>
