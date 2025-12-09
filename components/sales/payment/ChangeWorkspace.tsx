@@ -39,11 +39,11 @@ const ChangeWorkspace: React.FC<ChangeWorkspaceProps> = ({ paymentResult, total,
 
                     {/* Change Due Hero Display */}
                     {paymentResult.method === 'Cash' && change > 0 && (
-                        <div className="text-center py-6 px-10 bg-surface-muted/50 rounded-2xl w-full border border-border">
+                        <div className="text-center py-4 px-6 bg-surface-muted/50 rounded-2xl w-full border border-border">
                             <p className="text-sm font-bold text-text-secondary uppercase tracking-wider mb-2">Change Due</p>
                             <div className="flex items-baseline justify-center gap-1">
-                                <span className="text-3xl font-bold text-emerald-600/70 dark:text-emerald-400/70">₹</span>
-                                <span className="text-6xl md:text-7xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{change.toFixed(2)}</span>
+                                <span className="text-2xl font-bold text-emerald-600/70 dark:text-emerald-400/70">₹</span>
+                                <span className="text-5xl md:text-6xl font-bold font-mono text-emerald-600 dark:text-emerald-400">{change.toFixed(2)}</span>
                             </div>
                         </div>
                     )}
@@ -71,7 +71,7 @@ const ChangeWorkspace: React.FC<ChangeWorkspaceProps> = ({ paymentResult, total,
                     <button
                         onClick={handlePrintReceipt}
                         disabled={isPrinting}
-                        className="flex-1 flex items-center justify-center gap-2 py-4 border-2 border-border text-text-primary font-bold rounded-xl hover:bg-surface-muted transition-colors disabled:opacity-50 text-lg active:scale-[0.98]"
+                        className="flex-1 flex items-center justify-center gap-2 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 text-lg active:scale-[0.98] shadow-lg"
                     >
                         <PrintIcon className="h-6 w-6" />
                         {isPrinting ? 'Printing...' : 'Print Receipt'}

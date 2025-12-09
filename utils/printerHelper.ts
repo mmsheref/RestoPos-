@@ -184,17 +184,7 @@ const sendToPrinter = async (data: string, printer: Printer): Promise<{ success:
 
 export const testPrint = async (printer: Printer, settings?: AppSettings): Promise<{ success: boolean; message: string }> => {
     let data = COMMANDS.INIT;
-    
-    // Apply design if provided
-    if (settings?.receiptDesign) {
-        const d = settings.receiptDesign;
-        if (d.headerFontSize === 'huge') data += COMMANDS.TXT_4SQUARE;
-        else if (d.headerFontSize === 'large') data += COMMANDS.TXT_2WIDTH;
-        else data += COMMANDS.TXT_NORMAL;
-    } else {
-        data += COMMANDS.TXT_2WIDTH; // Default
-    }
-
+    data += COMMANDS.TXT_2WIDTH;
     data += COMMANDS.CENTER + COMMANDS.BOLD_ON + "TEST PRINT\n" + COMMANDS.BOLD_OFF + COMMANDS.TXT_NORMAL;
     data += "If you can read this,\nprinter is configured.\n";
     data += "\n\n" + COMMANDS.CUT;
@@ -212,24 +202,14 @@ export const printBill = async (args: PrintBillArgs): Promise<{ success: boolean
     const width = printer.paperWidth === '80mm' ? 48 : 32;
     const consolidatedItems = consolidateItems(items);
     
-    // Design Config Defaults
-    const design = settings.receiptDesign || {
-        headerFontSize: 'large',
-        showStoreName: true,
-        compactMode: false
-    };
-    const newLine = design.compactMode ? '\n' : '\n\n';
+    const newLine = '\n\n';
 
     // 1. Init & Header
     let data = COMMANDS.INIT + COMMANDS.CENTER;
     
-    if(design.showStoreName && settings.storeName) {
+    if(settings.storeName) {
         const safeName = settings.storeName.replace(/[\r\n]+/g, ' ').trim().toUpperCase();
-        
-        if (design.headerFontSize === 'huge') data += COMMANDS.TXT_4SQUARE;
-        else if (design.headerFontSize === 'large') data += COMMANDS.TXT_2WIDTH;
-        else data += COMMANDS.TXT_NORMAL;
-
+        data += COMMANDS.TXT_2WIDTH;
         data += COMMANDS.BOLD_ON + safeName + '\n' + COMMANDS.BOLD_OFF + COMMANDS.TXT_NORMAL;
     }
     data += "ESTIMATE / BILL\n";
@@ -272,51 +252,30 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     const receiptDate = date; // Use the provided date
     const dateStr = receiptDate.toLocaleDateString();
     const timeStr = receiptDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-    // Design Config Defaults (Backward compatibility)
-    const design = settings.receiptDesign || {
-        headerFontSize: 'large',
-        showStoreName: true,
-        showStoreAddress: true,
-        showDate: true,
-        showTaxBreakdown: true,
-        showFooter: true,
-        compactMode: false
-    };
-
-    const newLine = design.compactMode ? '\n' : '\n\n';
+    const newLine = '\n\n';
 
     // 1. Init & Header
     let data = COMMANDS.INIT + COMMANDS.CENTER;
     
-    if (design.showStoreName && settings.storeName) {
+    if (settings.storeName) {
         const safeName = settings.storeName.replace(/[\r\n]+/g, ' ').trim().toUpperCase();
-        
-        // Font Size Logic
-        if (design.headerFontSize === 'huge') data += COMMANDS.TXT_4SQUARE;
-        else if (design.headerFontSize === 'large') data += COMMANDS.TXT_2WIDTH;
-        else data += COMMANDS.TXT_NORMAL;
-
+        data += COMMANDS.TXT_2WIDTH;
         data += COMMANDS.BOLD_ON + safeName + '\n' + COMMANDS.BOLD_OFF + COMMANDS.TXT_NORMAL;
     }
     
-    if (design.showStoreAddress && settings.storeAddress) {
+    if (settings.storeAddress) {
         const safeAddr = settings.storeAddress.replace(/[\r\n]+/g, ' ').trim();
         data += safeAddr + '\n';
     }
     
-    if (!design.compactMode) data += '\n'; // Spacer
+    data += '\n'; // Spacer
     
     // 2. Meta
     data += COMMANDS.LEFT;
     
-    if (design.showDate) {
-        const metaLeft = `${dateStr} ${timeStr}`;
-        const metaRight = `#${receiptId.slice(-4)}`;
-        data += createRow(metaLeft, metaRight, width);
-    } else {
-        data += `Receipt #${receiptId.slice(-4)}\n`;
-    }
+    const metaLeft = `${dateStr} ${timeStr}`;
+    const metaRight = `#${receiptId.slice(-4)}`;
+    data += createRow(metaLeft, metaRight, width);
 
     data += createDivider(width);
     
@@ -330,7 +289,7 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     data += createDivider(width);
     
     // 4. Totals
-    if (settings.taxEnabled && design.showTaxBreakdown) {
+    if (settings.taxEnabled) {
          data += createRow('Subtotal', formatCurrency(subtotal), width);
          data += createRow(`Tax (${settings.taxRate}%)`, formatCurrency(tax), width);
          data += createDivider(width);
@@ -340,19 +299,17 @@ export const printReceipt = async (args: PrintReceiptArgs): Promise<{ success: b
     data += "TOTAL: " + formatCurrency(total) + "\n";
     data += COMMANDS.TXT_NORMAL + COMMANDS.BOLD_OFF + COMMANDS.LEFT; // Reset
     
-    if (!design.compactMode) data += '\n';
+    data += '\n';
     data += createRow('Paid via:', paymentMethod, width);
 
     // 5. Footer
-    if (design.showFooter) {
-        data += createDivider(width);
-        data += COMMANDS.CENTER;
-        if(settings.receiptFooter) {
-            const safeFooter = settings.receiptFooter.replace(/[\r\n]+/g, ' ').trim();
-            data += safeFooter + '\n';
-        }
-        data += "Thank you for visiting!\n";
+    data += createDivider(width);
+    data += COMMANDS.CENTER;
+    if(settings.receiptFooter) {
+        const safeFooter = settings.receiptFooter.replace(/[\r\n]+/g, ' ').trim();
+        data += safeFooter + '\n';
     }
+    data += "Thank you for visiting!\n";
     
     // Cut command usually needs a few line feeds to push paper out
     data += newLine + COMMANDS.CUT;
