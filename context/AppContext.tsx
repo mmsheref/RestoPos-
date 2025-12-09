@@ -25,15 +25,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     storeAddress: '123 Food Street, Flavor Town',
     receiptFooter: 'Follow us @myrestaurant',
     reportsPIN: '', // Empty means no PIN protection
-    receiptDesign: {
-        headerFontSize: 'large',
-        showStoreName: true,
-        showStoreAddress: true,
-        showDate: true,
-        showTaxBreakdown: true,
-        showFooter: true,
-        compactMode: false
-    }
 };
 
 interface FirebaseErrorState {
@@ -131,9 +122,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // We initialize state from localStorage where possible for instant boot ('Optimistic UI')
   const [settings, setSettingsState] = useState<AppSettings>(() => {
       const cached = localStorage.getItem(SETTINGS_CACHE_KEY);
-      // Merge with default to ensure new properties (like receiptDesign) exist if cached data is old
+      // Merge with default to ensure new properties exist if cached data is old
       const parsed = cached ? JSON.parse(cached) : {};
-      return { ...DEFAULT_SETTINGS, ...parsed, receiptDesign: { ...DEFAULT_SETTINGS.receiptDesign, ...parsed.receiptDesign } };
+      return { ...DEFAULT_SETTINGS, ...parsed };
   });
   
   const [items, setItemsState] = useState<Item[]>(() => {
@@ -259,7 +250,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 if (settingsSnap.exists()) {
                     const fetched = settingsSnap.data() as AppSettings;
                     // Merge with defaults to handle new fields
-                    const merged = { ...DEFAULT_SETTINGS, ...fetched, receiptDesign: { ...DEFAULT_SETTINGS.receiptDesign, ...fetched.receiptDesign } };
+                    const merged = { ...DEFAULT_SETTINGS, ...fetched };
                     setSettingsState(merged);
                     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged));
                 } else {

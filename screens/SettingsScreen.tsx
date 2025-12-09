@@ -5,7 +5,7 @@ import { MenuIcon } from '../constants';
 import SettingsNav from '../components/settings/SettingsNav';
 import SettingsContent from '../components/settings/SettingsContent';
 
-export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'security' | 'data' | 'receipt_design';
+export type SettingsCategory = 'appearance' | 'financial' | 'payment_types' | 'tables' | 'printers' | 'store_info' | 'security' | 'data';
 
 const SettingsScreen: React.FC = () => {
     const { openDrawer } = useAppContext();
@@ -29,7 +29,6 @@ const SettingsScreen: React.FC = () => {
         store_info: 'Store Information',
         security: 'Security & Reports',
         data: 'Data Management',
-        receipt_design: 'Receipt Design',
     };
     const detailTitle = categoryMap[activeCategory];
 
