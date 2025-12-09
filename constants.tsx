@@ -338,6 +338,7 @@ export const NAV_LINKS = [
   { path: '/reports', label: 'Reports', Icon: ChartIcon },
   { path: '/items', label: 'Items', Icon: ItemsIcon },
   { path: '/settings', label: 'Settings', Icon: SettingsIcon },
+  { path: '/about', label: 'About', Icon: InfoIcon },
 ];
 
 // --- END: Added Constants ---
