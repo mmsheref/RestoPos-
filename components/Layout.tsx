@@ -12,6 +12,7 @@ import ReceiptsScreen from '../screens/ReceiptsScreen';
 import ItemsScreen from '../screens/ItemsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
+import AboutScreen from '../screens/AboutScreen';
 
 const Layout: React.FC = () => {
   const { 
@@ -39,7 +40,7 @@ const Layout: React.FC = () => {
   const finalTitle = pathname === '/sales' && headerTitle ? headerTitle : baseTitle;
   
   // Determine which screens need a default header.
-  const showDefaultHeader = !['/sales', '/receipts', '/settings', '/items', '/reports'].includes(pathname); 
+  const showDefaultHeader = !['/sales', '/receipts', '/settings', '/items', '/reports', '/about'].includes(pathname); 
 
   useEffect(() => {
     // When navigating to non-Sales pages, ensure the title is set correctly
@@ -48,7 +49,7 @@ const Layout: React.FC = () => {
     }
   }, [pathname, setHeaderTitle]);
 
-  const validPaths = ['/sales', '/receipts', '/items', '/settings', '/reports'];
+  const validPaths = ['/sales', '/receipts', '/items', '/settings', '/reports', '/about'];
   const isRootOrInvalid = !validPaths.some(p => pathname.startsWith(p));
   if (isRootOrInvalid) {
       return <Navigate to="/sales" replace />;
@@ -95,6 +96,10 @@ const Layout: React.FC = () => {
 
         <div className={isVisible('/settings') ? 'flex flex-col h-full' : 'hidden'}>
             {visitedRoutes['/settings'] && <SettingsScreen />}
+        </div>
+        
+        <div className={isVisible('/about') ? 'flex flex-col h-full' : 'hidden'}>
+            {visitedRoutes['/about'] && <AboutScreen />}
         </div>
 
       </main>

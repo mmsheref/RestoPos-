@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
+import { StoreIcon } from './constants';
 
 const AppRoutes: React.FC = () => {
     const { user, isLoading, showOnboarding } = useAppContext();
@@ -16,10 +17,16 @@ const AppRoutes: React.FC = () => {
 
     if (isLoading) {
         return (
-            <div className="flex h-screen w-full items-center justify-center bg-background">
-               <div className="text-center">
-                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                   <p className="text-text-secondary">Authenticating...</p>
+            <div className="flex h-screen w-full items-center justify-center bg-surface-muted">
+               <div className="flex flex-col items-center">
+                   <div className="relative mb-6">
+                        <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping"></div>
+                        <div className="relative bg-surface p-4 rounded-full shadow-lg">
+                             <StoreIcon className="h-10 w-10 text-primary" />
+                        </div>
+                   </div>
+                   <h2 className="text-lg font-bold text-text-primary">Restaurant POS</h2>
+                   <p className="text-sm text-text-secondary mt-1">Loading your workspace...</p>
                </div>
             </div>
         );

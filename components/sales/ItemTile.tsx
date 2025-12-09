@@ -25,14 +25,14 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
     if (isEditing && mode === 'grid') {
         return (
             <div 
-                className={`relative w-full rounded-lg overflow-hidden border-2 border-dashed border-primary/50 bg-surface-muted/50 ${isFixedGrid ? 'h-full' : 'aspect-square'} animate-pulse`}
+                className={`relative w-full rounded-xl overflow-hidden border-2 border-dashed border-primary/60 bg-primary/5 ${isFixedGrid ? 'h-full' : 'aspect-square'} animate-pulse`}
             >
                 {/* Background Image (Dimmed) */}
                 {hasRealImage && (
                     <img 
                         src={item.imageUrl} 
                         alt={item.name} 
-                        className="absolute inset-0 w-full h-full object-cover z-0 opacity-40 grayscale pointer-events-none"
+                        className="absolute inset-0 w-full h-full object-cover z-0 opacity-30 grayscale pointer-events-none"
                     />
                 )}
                 
@@ -42,8 +42,10 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                     onClick={() => onAssignItem(index)}
                     className="absolute inset-0 flex flex-col items-center justify-center z-10 w-full h-full"
                 >
-                    <PencilIcon className="h-8 w-8 text-text-primary mb-1" />
-                    <span className="text-xs font-bold text-text-primary bg-surface/80 px-1 rounded">Change</span>
+                    <div className="bg-primary/10 p-2 rounded-full mb-1">
+                        <PencilIcon className="h-6 w-6 text-primary" />
+                    </div>
+                    <span className="text-[10px] uppercase font-bold text-primary bg-surface/90 px-2 py-0.5 rounded-full shadow-sm">Change</span>
                 </button>
 
                 {/* Top Right: Delete Button */}
@@ -53,13 +55,13 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
                         e.stopPropagation();
                         if(onRemoveFromGrid) onRemoveFromGrid(index);
                     }}
-                    className="absolute top-1 right-1 z-20 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 active:scale-95 transition-transform"
+                    className="absolute top-1 right-1 z-20 bg-red-500 text-white rounded-full p-1.5 shadow-md hover:bg-red-600 active:scale-90 transition-transform"
                 >
                     <TrashIcon className="h-4 w-4" />
                 </button>
 
                 {/* Bottom Label */}
-                <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50 backdrop-blur-sm z-0 pointer-events-none">
+                <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-black/50 backdrop-blur-sm z-0 pointer-events-none">
                     <h3 className="font-semibold text-white text-xs text-center truncate">
                         {item.name}
                     </h3>
@@ -71,29 +73,39 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
     // --- NORMAL MODE RENDER (SPEED OPTIMIZED) ---
     
     const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-        // Prevent default browser behaviors that might interfere with touch
-        // e.preventDefault(); // CAUTION: This can block scrolling if not careful, better to leave it unless specific issues arise
         onAddItemToOrder(item);
     };
+
+    // Price Badge Component
+    const PriceBadge = () => (
+        <div className="absolute top-1.5 right-1.5 bg-surface/90 backdrop-blur-md px-1.5 py-0.5 rounded text-[10px] font-bold text-text-primary shadow-sm z-10 border border-border/50 tabular-nums tracking-tight">
+            ₹{item.price.toFixed(0)}
+        </div>
+    );
 
     if (hasRealImage) {
         return (
             <button
                 type="button"
                 onClick={handleClick}
-                className={`relative w-full rounded-lg overflow-hidden cursor-pointer shadow-sm border border-border bg-surface-muted ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-transform duration-75 active:scale-95`}
+                className={`relative w-full rounded-xl overflow-hidden cursor-pointer shadow-sm border border-border/50 bg-surface-muted group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-100 active:scale-[0.97] hover:shadow-md`}
                 aria-label={`Add ${item.name} to order`}
             >
                 <div className="w-full h-full pointer-events-none">
                     <img 
                         src={item.imageUrl} 
                         alt={item.name} 
-                        className="absolute inset-0 w-full h-full object-cover z-0"
+                        className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-300 group-hover:scale-105"
                         loading="lazy"
                         decoding="async"
                     />
-                    <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm z-10">
-                        <h3 className="font-semibold text-white text-xs md:text-sm leading-tight text-center line-clamp-2">
+                    <PriceBadge />
+                    
+                    {/* Gradient Overlay for Text Readability */}
+                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-10"></div>
+                    
+                    <div className="absolute bottom-0 left-0 right-0 p-2 z-20">
+                        <h3 className="font-bold text-white text-xs md:text-sm leading-tight text-center line-clamp-2 drop-shadow-sm">
                             {item.name}
                         </h3>
                     </div>
@@ -105,11 +117,13 @@ const ItemTile: React.FC<ItemTileProps> = React.memo(({
             <button
                 type="button"
                 onClick={handleClick}
-                className={`relative w-full rounded-lg cursor-pointer shadow-sm border border-border bg-surface ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-transform duration-75 active:scale-95`}
+                className={`relative w-full rounded-xl cursor-pointer shadow-sm border border-border bg-surface group ${isFixedGrid ? 'h-full' : 'aspect-square'} touch-manipulation select-none transition-all duration-100 active:scale-[0.97] hover:shadow-md hover:border-primary/30`}
                 aria-label={`Add ${item.name} to order`}
             >
-                <div className="w-full h-full flex flex-col justify-center items-center p-2 text-center transition-colors hover:bg-surface-muted duration-75 pointer-events-none">
-                    <h3 className="font-semibold text-text-primary text-sm md:text-base leading-tight line-clamp-3">
+                <PriceBadge />
+                <div className="w-full h-full flex flex-col justify-center items-center p-3 text-center transition-colors hover:bg-surface-muted/50 duration-75 pointer-events-none">
+                     <div className="w-8 h-1 bg-primary/20 rounded-full mb-3 group-hover:bg-primary/40 transition-colors"></div>
+                    <h3 className="font-bold text-text-primary text-sm md:text-base leading-snug line-clamp-3">
                         {item.name}
                     </h3>
                 </div>
