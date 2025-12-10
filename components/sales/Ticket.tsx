@@ -67,7 +67,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
     };
 
     return (
-        <li className="relative border-b border-border/50 overflow-hidden h-[76px] select-none transform translate-z-0 last:border-0">
+        <li className="relative border-b border-border/50 overflow-hidden min-h-[76px] select-none transform translate-z-0 last:border-0">
             {/* Background Action Layer (Delete) */}
             <div className="absolute inset-0 flex justify-end bg-red-600">
                 <button
@@ -81,7 +81,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
 
             {/* Foreground Content Layer */}
             <div 
-                className="absolute inset-0 bg-surface flex items-center px-4 py-2 transition-transform duration-200 ease-out"
+                className="absolute inset-0 bg-surface flex items-center px-4 py-3 transition-transform duration-200 ease-out"
                 style={{ transform: `translateX(${offset}px)` }}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
@@ -92,14 +92,15 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 onMouseLeave={handleTouchEnd}
                 onClick={handleContentClick}
             >
-                {/* Item Details */}
-                <div className="flex-grow min-w-0 pr-4 pointer-events-none">
-                    <p className="font-semibold text-text-primary truncate text-base mb-0.5">{item.name}</p>
-                    <p className="text-xs text-text-secondary">@ ₹{item.price.toFixed(2)}</p>
+                {/* Item Details - Allows wrapping */}
+                <div className="flex-grow min-w-0 pr-2 pointer-events-none flex flex-col justify-center">
+                    <p className="font-semibold text-text-primary text-base leading-snug break-words whitespace-normal line-clamp-2">
+                        {item.name}
+                    </p>
                 </div>
 
                 {/* Quantity Controls */}
-                <div className="flex items-center justify-center gap-2 mx-1" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
+                <div className="flex items-center justify-center gap-2 mx-2 flex-shrink-0" onMouseDown={e => e.stopPropagation()} onTouchStart={e => e.stopPropagation()}>
                     <button 
                         onClick={() => onDecrement(item.lineItemId)} 
                         className="h-8 w-8 flex items-center justify-center bg-surface border border-border rounded-full text-text-secondary hover:bg-surface-muted hover:border-red-300 active:bg-red-100 active:text-red-600 transition-all focus:outline-none" 
@@ -138,7 +139,7 @@ const SwipeableOrderItem: React.FC<SwipeableOrderItemProps> = ({
                 </div>
 
                 {/* Total Price */}
-                <div className="w-20 text-right pointer-events-none pl-2">
+                <div className="w-20 text-right pointer-events-none pl-1 flex-shrink-0">
                     <p className="font-bold text-text-primary text-base">₹{(item.price * item.quantity).toFixed(0)}</p>
                 </div>
             </div>
@@ -356,13 +357,14 @@ const Ticket: React.FC<TicketProps> = (props) => {
           </div>
       </header>
       
-      {/* Scrollable Area: Items + Sticky Totals */}
+      {/* Scrollable Area: Items */}
+      {/* Dynamic Movement: Sticky Totals are inside this container so they scroll with items but stick to bottom */}
       <div 
         ref={listContainerRef} 
-        className="flex-1 overflow-y-auto flex flex-col relative pb-4 min-h-0 bg-surface-muted/30"
+        className="flex-1 overflow-y-auto flex flex-col relative pb-0 min-h-0 bg-surface-muted/30"
         style={{ 
             WebkitOverflowScrolling: 'touch',
-            transform: 'translateZ(0)', // Fix for painting glitches on iOS/Mobile when toggling display
+            transform: 'translateZ(0)',
             willChange: 'scroll-position'
         }}
       >
@@ -390,7 +392,7 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </div>
           ) : (
             <>
-                <div className="bg-surface shadow-sm mb-4">
+                <div className="bg-surface shadow-sm mb-auto">
                     <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
                         <SwipeableOrderItem
@@ -409,28 +411,26 @@ const Ticket: React.FC<TicketProps> = (props) => {
                     ))}
                     </ul>
                 </div>
+                
+                {/* Dynamic Totals Section: Stick to bottom of scroll view */}
+                <div className="sticky bottom-0 bg-surface border-t border-border z-10 px-5 py-3 space-y-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                    {settings.taxEnabled && (
+                        <div className="space-y-1 text-xs text-text-secondary">
+                            <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
+                            <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
+                        </div>
+                    )}
+                    <div className="flex justify-between items-baseline pt-1">
+                        <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
+                        <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
+                    </div>
+                </div>
             </>
           )}
       </div>
       
-      {/* Sticky Bottom Area */}
-      <div className="bg-surface border-t border-border z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        {currentOrder.length > 0 && (
-            <div className="px-5 py-3 space-y-2">
-                {settings.taxEnabled && (
-                    <div className="space-y-1 text-xs text-text-secondary">
-                        <div className="flex justify-between"><span>Subtotal</span><span>₹{subtotal.toFixed(2)}</span></div>
-                        <div className="flex justify-between"><span>GST ({settings.taxRate}%)</span><span>₹{tax.toFixed(2)}</span></div>
-                    </div>
-                )}
-                <div className="flex justify-between items-baseline pt-1">
-                    <span className="text-sm font-semibold text-text-secondary">Total Payable</span>
-                    <span className="text-2xl font-bold text-text-primary">₹{total.toFixed(2)}</span>
-                </div>
-            </div>
-        )}
-
-        {/* Action Buttons */}
+      {/* Sticky Bottom Area: Action Buttons (Always Fixed) */}
+      <div className="bg-surface border-t border-border z-20">
         <div className="p-4 pt-2 pb-safe-bottom">
             <div className={`flex items-stretch gap-3 ${isClearConfirmVisible ? 'opacity-0 pointer-events-none' : ''}`}>
                 {renderActionButtons()}
