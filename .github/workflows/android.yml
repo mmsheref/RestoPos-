@@ -1,38 +1,47 @@
-name: Build & Release Signed APK
+name: Build & Release Signed APK (Android Branch)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]        # Trigger when AI Studio updates main
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # ---------------------------------------------------------
+      # 1. Checkout ANDROID BRANCH (native code)
+      # ---------------------------------------------------------
       - name: Checkout android branch
         uses: actions/checkout@v4
         with:
           ref: android
 
+      # ---------------------------------------------------------
+      # 2. Clean old assets
+      # ---------------------------------------------------------
       - name: Clean old assets
         run: rm -rf android/app/src/main/assets/public
 
-      - name: Fetch main branch web code
+      # ---------------------------------------------------------
+      # 3. Clone MAIN branch (AI Studio code)
+      # ---------------------------------------------------------
+      - name: Clone main branch web app
         run: |
           git clone --depth=1 --branch main https://github.com/mmsheref/RestoPos-.git websrc
           cd websrc
           npm ci
-          npm run build
 
-      - name: Copy web build into Android
-        run: |
-          mkdir -p android/app/src/main/assets/public
-          cp -r websrc/dist/* android/app/src/main/assets/public/
-      # --- THIS CREATES THE MISSING FILE ---
+      # ---------------------------------------------------------
+      # 4. Create Firebase Config dynamically (NEW)
+      # ---------------------------------------------------------
       - name: Create Firebase Config
         run: |
-          cat <<EOF > firebaseConfig.ts
+          cat <<EOF > websrc/src/firebaseConfig.ts
           export const firebaseConfig = {
             apiKey: "${{ secrets.FIREBASE_API_KEY }}",
             authDomain: "${{ secrets.FIREBASE_AUTH_DOMAIN }}",
@@ -42,18 +51,41 @@ jobs:
             appId: "${{ secrets.FIREBASE_APP_ID }}"
           };
           EOF
-      - name: Build React app
-        run: npm run build
 
-      - name: Sync to Android
-        run: npx cap sync android
+      # ---------------------------------------------------------
+      # 5. Build web app (inside cloned websrc)
+      # ---------------------------------------------------------
+      - name: Build web app
+        run: |
+          cd websrc
+          npm run build
 
+      # ---------------------------------------------------------
+      # 6. Copy web build into Android/assets
+      # ---------------------------------------------------------
+      - name: Copy web build into Android
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          cp -r websrc/dist/* android/app/src/main/assets/public/
+
+      # ---------------------------------------------------------
+      # 7. Setup Java
+      # ---------------------------------------------------------
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
+      # ---------------------------------------------------------
+      # 8. Setup Android SDK
+      # ---------------------------------------------------------
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      # ---------------------------------------------------------
+      # 9. Decode & Place Keystore
+      # ---------------------------------------------------------
       - name: Decode & Place Keystore
         run: |
           mkdir -p android/app
@@ -62,6 +94,9 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
+      # ---------------------------------------------------------
+      # 10. Build Signed APK
+      # ---------------------------------------------------------
       - name: Build Signed Release APK
         working-directory: android
         env:
@@ -77,12 +112,19 @@ jobs:
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD" \
             --stacktrace
+
+      # ---------------------------------------------------------
+      # 11. Upload artifact
+      # ---------------------------------------------------------
       - name: Upload APK to Workflow
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: android/app/build/outputs/apk/release/app-release.apk
 
+      # ---------------------------------------------------------
+      # 12. Create GitHub Release
+      # ---------------------------------------------------------
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -94,7 +136,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Send APK to Telegram Channel
+      # ---------------------------------------------------------
+      # 13. Optional Telegram Upload
+      # ---------------------------------------------------------
+      - name: Send APK to Telegram
+        if: ${{ secrets.TG_BOT_TOKEN != '' }}
         env:
           BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           CHAT_ID: ${{ secrets.TG_CHAT_ID }}
