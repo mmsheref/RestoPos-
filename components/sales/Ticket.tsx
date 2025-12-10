@@ -392,7 +392,8 @@ const Ticket: React.FC<TicketProps> = (props) => {
             </div>
           ) : (
             <>
-                <div className="bg-surface shadow-sm mb-auto">
+                {/* Removed mb-auto to restore dynamic sticky positioning for Totals */}
+                <div className="bg-surface shadow-sm">
                     <ul className="overflow-x-hidden">
                     {currentOrder.map(item => (
                         <SwipeableOrderItem
