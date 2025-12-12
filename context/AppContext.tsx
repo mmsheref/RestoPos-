@@ -9,6 +9,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { requestAppPermissions } from '../utils/permissions';
+import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary } from '../utils/notificationHelper';
 import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, getDoc, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -29,6 +30,13 @@ const DEFAULT_SETTINGS: AppSettings = {
     shiftMorningStart: '06:00',
     shiftMorningEnd: '17:30',
     shiftNightEnd: '05:00',
+
+    // Default Notifications
+    notificationsEnabled: false,
+    notifyLowStock: false,
+    lowStockThreshold: 10,
+    notifyDailySummary: false,
+    dailySummaryTime: '22:00'
 };
 
 interface FirebaseErrorState {
@@ -66,6 +74,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // If native, request permissions first
     if (Capacitor.isNativePlatform()) {
       const permissionsGranted = await requestAppPermissions();
+      // Also request notification permissions if platform supports it, 
+      // but we don't block onboarding for it (optional)
+      await requestNotificationPermission();
+      
       if (permissionsGranted) {
         localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
         setShowOnboarding(false);
@@ -292,6 +304,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     const merged = { ...DEFAULT_SETTINGS, ...fetched };
                     setSettingsState(merged);
                     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged));
+                    
+                    // Initialize notifications based on fetched settings
+                    if (merged.notificationsEnabled) {
+                        requestNotificationPermission().then(() => {
+                            if (merged.notifyDailySummary && merged.dailySummaryTime) {
+                                scheduleDailySummary(merged.dailySummaryTime);
+                            }
+                        });
+                    }
+
                 } else {
                     await setDoc(doc(db, 'users', uid, 'config', 'settings'), DEFAULT_SETTINGS);
                     setSettingsState(DEFAULT_SETTINGS);
@@ -450,6 +472,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const updated = { ...settings, ...newSettings };
     setSettingsState(updated);
     localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(updated));
+    
+    // Notification Logic Handling
+    if (newSettings.notificationsEnabled === true) {
+        requestNotificationPermission(); // Request permission when master toggle enabled
+    }
+    
+    // Handle Schedule Updates
+    if (updated.notificationsEnabled) {
+        if (updated.notifyDailySummary && updated.dailySummaryTime) {
+            // Re-schedule if time changed or just enabled
+            if (newSettings.dailySummaryTime || newSettings.notifyDailySummary || newSettings.notificationsEnabled) {
+                scheduleDailySummary(updated.dailySummaryTime);
+            }
+        } else {
+            cancelDailySummary();
+        }
+    } else {
+        cancelDailySummary(); // Cancel if master disabled
+    }
+
     try { await setDoc(doc(db, 'users', getUid(), 'config', 'settings'), updated, { merge: true }); } 
     catch (e) { console.error(e); }
   }, [settings, getUid]);
