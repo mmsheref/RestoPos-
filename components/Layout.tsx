@@ -88,14 +88,14 @@ const Layout: React.FC = () => {
     const deltaX = touchX - touchStartRef.current.x;
     const deltaY = Math.abs(touchY - touchStartRef.current.y);
 
-    // Optimized Swipe Logic:
-    // 1. Swipe must start near left edge (increased from 50px to 60px for easier detection)
-    // 2. Swipe must be horizontal (deltaX > 40px - lower threshold for responsiveness)
-    // 3. Dominant direction must be horizontal (deltaX > deltaY) to prevent accidental diagonal triggers
+    // Optimized Swipe Logic for Navigation Drawer:
+    // 1. Edge Detection: Swipe must start within the first 60px of the left screen edge.
+    // 2. Direction: Must be horizontal (deltaX > deltaY).
+    // 3. Threshold: Must move at least 40px to trigger.
     
     if (touchStartRef.current.x < 60 && deltaX > 40 && deltaX > deltaY) {
         openDrawer();
-        touchStartRef.current = null; // Reset to prevent multiple triggers
+        touchStartRef.current = null; // Reset to prevent multiple triggers in one gesture
     }
   };
 
