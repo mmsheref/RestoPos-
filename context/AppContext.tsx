@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
-    CustomGrid, PaymentType, OrderItem, AppContextType, Table 
+    CustomGrid, PaymentType, OrderItem, AppContextType, Table, Theme
 } from '../types';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
@@ -15,8 +15,6 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import FirebaseError from '../components/modals/FirebaseError';
 import { APP_VERSION } from '../constants';
 import { idb } from '../utils/indexedDB'; // Import the new DB helper
-
-type Theme = 'light' | 'dark';
 
 // Default configuration for new users
 const DEFAULT_SETTINGS: AppSettings = { 
@@ -103,10 +101,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
         const storedPrefs = localStorage.getItem('theme');
-        if (storedPrefs) return storedPrefs as Theme;
-        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        // Validate stored preference
+        if (storedPrefs === 'light' || storedPrefs === 'dark' || storedPrefs === 'system') {
+            return storedPrefs as Theme;
+        }
+        return 'system'; // Default to system
     }
-    return 'light';
+    return 'system';
   });
 
   const setTheme = (newTheme: Theme) => {
@@ -114,9 +115,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('theme', newTheme);
   };
   
+  // Apply theme class to HTML body
   useEffect(() => {
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    
+    const applyTheme = () => {
+        let effectiveTheme = theme;
+        
+        if (theme === 'system') {
+            effectiveTheme = mediaQuery.matches ? 'dark' : 'light';
+        }
+        
+        if (effectiveTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    };
+
+    applyTheme();
+
+    // Listener for system preference changes when in 'system' mode
+    const handleChange = () => {
+        if (theme === 'system') {
+            applyTheme();
+        }
+    };
+
+    // Modern browsers use addEventListener
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme]);
 
   const openDrawer = useCallback(() => setIsDrawerOpen(true), []);
