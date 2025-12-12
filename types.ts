@@ -143,6 +143,11 @@ export interface AppSettings {
   timezone?: string;
   language?: string;
   notificationsEnabled?: boolean;
+
+  // Shift Configuration
+  shiftMorningStart?: string; // e.g. "06:00"
+  shiftMorningEnd?: string;   // e.g. "17:30" (Also acts as Night Start)
+  shiftNightEnd?: string;     // e.g. "05:00" (Next Day)
 }
 
 /**

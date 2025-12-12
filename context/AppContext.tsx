@@ -26,6 +26,11 @@ const DEFAULT_SETTINGS: AppSettings = {
     storeAddress: '123 Food Street, Flavor Town',
     receiptFooter: 'Follow us @myrestaurant',
     reportsPIN: '', // Empty means no PIN protection
+    
+    // Default Shift Timings as requested
+    shiftMorningStart: '06:00',
+    shiftMorningEnd: '17:30',
+    shiftNightEnd: '05:00',
 };
 
 interface FirebaseErrorState {

@@ -8,6 +8,7 @@ import { Share } from '@capacitor/share';
 
 // --- TYPES ---
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+type ShiftFilter = 'all' | 'morning' | 'night';
 type ReportTab = 'overview' | 'items' | 'orders'; 
 type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
@@ -103,6 +104,7 @@ const ReportsScreen: React.FC = () => {
     
     // Filters State
     const [filter, setFilter] = useState<DateFilter>('today');
+    const [shiftFilter, setShiftFilter] = useState<ShiftFilter>('all');
     const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
     const [customStartDate, setCustomStartDate] = useState(() => new Date().toISOString().slice(0, 16));
     const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 16));
@@ -114,7 +116,7 @@ const ReportsScreen: React.FC = () => {
 
     // --- ANALYTICS LOGIC ---
     const { filteredReceipts, metrics } = useMemo(() => {
-        // 1. Calculate Date Range
+        // 1. Calculate Date Range (Base)
         let startTime: Date;
         let endTime: Date;
 
@@ -122,35 +124,58 @@ const ReportsScreen: React.FC = () => {
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
         const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
+        // Helper to adjust time based on "HH:MM" string
+        const setTime = (baseDate: Date, timeStr: string | undefined, defaultTime: string): Date => {
+            const [hours, minutes] = (timeStr || defaultTime).split(':').map(Number);
+            const newDate = new Date(baseDate);
+            newDate.setHours(hours, minutes, 0, 0);
+            return newDate;
+        };
+
         if (filter === 'custom') {
             startTime = new Date(customStartDate);
             endTime = new Date(customEndDate);
         } else {
-            switch(filter) {
-                case 'today':
-                    startTime = todayStart;
-                    endTime = todayEnd;
-                    break;
-                case 'yesterday':
-                    startTime = new Date(todayStart);
-                    startTime.setDate(todayStart.getDate() - 1);
-                    endTime = new Date(todayStart);
-                    endTime.setDate(todayStart.getDate() - 1);
-                    endTime.setHours(23, 59, 59, 999);
-                    break;
-                case 'week':
-                    startTime = new Date(todayStart);
-                    startTime.setDate(todayStart.getDate() - 6); 
-                    endTime = todayEnd;
-                    break;
-                case 'month':
-                    startTime = new Date(todayStart);
-                    startTime.setDate(todayStart.getDate() - 29);
-                    endTime = todayEnd;
-                    break;
-                default:
-                    startTime = todayStart;
-                    endTime = todayEnd;
+            // Determine the "Anchor Day"
+            let anchorDayStart = new Date(todayStart);
+            let anchorDayEnd = new Date(todayEnd);
+
+            if (filter === 'yesterday') {
+                anchorDayStart.setDate(todayStart.getDate() - 1);
+                anchorDayEnd = new Date(anchorDayStart);
+                anchorDayEnd.setHours(23, 59, 59, 999);
+            } else if (filter === 'week') {
+                anchorDayStart.setDate(todayStart.getDate() - 6);
+                anchorDayEnd = todayEnd;
+            } else if (filter === 'month') {
+                anchorDayStart.setDate(todayStart.getDate() - 29);
+                anchorDayEnd = todayEnd;
+            }
+
+            // Apply Shift Logic ONLY for 'today' and 'yesterday' to keep it sane.
+            // For multi-day ranges (week/month), applying specific shift times across days is complex, 
+            // so we'll stick to full dates unless specifically requested.
+            // However, the prompt implies "filtering sales happening in these shifts".
+            // Implementation: If Shift Filter is ON, we modify the start/end times of the *Anchor Day*.
+            // This works best for single-day views.
+            
+            if ((filter === 'today' || filter === 'yesterday') && shiftFilter !== 'all') {
+                const morningStartStr = settings.shiftMorningStart || '06:00';
+                const morningEndStr = settings.shiftMorningEnd || '17:30';
+                const nightEndStr = settings.shiftNightEnd || '05:00';
+
+                if (shiftFilter === 'morning') {
+                    startTime = setTime(anchorDayStart, morningStartStr, '06:00');
+                    endTime = setTime(anchorDayStart, morningEndStr, '17:30');
+                } else { // shiftFilter === 'night'
+                    startTime = setTime(anchorDayStart, morningEndStr, '17:30'); // Night starts when morning ends
+                    endTime = setTime(anchorDayStart, nightEndStr, '05:00');
+                    // CRITICAL: Night shift ends on the NEXT day
+                    endTime.setDate(endTime.getDate() + 1);
+                }
+            } else {
+                startTime = anchorDayStart;
+                endTime = anchorDayEnd;
             }
         }
 
@@ -223,7 +248,7 @@ const ReportsScreen: React.FC = () => {
                 salesByCategory
             }
         };
-    }, [receipts, filter, customStartDate, customEndDate, paymentMethodFilter, orderSortConfig]);
+    }, [receipts, filter, shiftFilter, customStartDate, customEndDate, paymentMethodFilter, orderSortConfig, settings]);
 
     // Derived state for Sorted Items List
     const sortedItems = useMemo(() => {
@@ -299,10 +324,11 @@ const ReportsScreen: React.FC = () => {
 
     const handleClearFilters = () => {
         setFilter('today');
+        setShiftFilter('all');
         setPaymentMethodFilter('all');
     };
 
-    const isFilterActive = filter !== 'today' || paymentMethodFilter !== 'all';
+    const isFilterActive = filter !== 'today' || shiftFilter !== 'all' || paymentMethodFilter !== 'all';
 
     const CompactSummary: React.FC = () => (
         <div className="flex flex-wrap gap-4 mb-4">
@@ -351,6 +377,7 @@ const ReportsScreen: React.FC = () => {
                 {!isLocked && (
                     <div className="px-4 pb-3 flex flex-wrap gap-2 items-center justify-between overflow-x-auto no-scrollbar">
                         <div className="flex items-center gap-2">
+                            {/* Date Filter */}
                             <div className="flex bg-surface-muted p-1 rounded-lg">
                                 {(['today', 'yesterday', 'week', 'month', 'custom'] as const).map(f => (
                                     <button
@@ -362,6 +389,21 @@ const ReportsScreen: React.FC = () => {
                                     </button>
                                 ))}
                             </div>
+                            
+                            {/* Shift Filter (Only visible for single days) */}
+                            {(filter === 'today' || filter === 'yesterday') && (
+                                <div className="flex bg-surface-muted p-1 rounded-lg">
+                                    {(['all', 'morning', 'night'] as const).map(s => (
+                                        <button
+                                            key={s}
+                                            onClick={() => setShiftFilter(s)}
+                                            className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${shiftFilter === s ? 'bg-surface text-primary shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+                                        >
+                                            {s === 'all' ? 'All Day' : s}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                             
                             {isFilterActive && (
                                 <button 
