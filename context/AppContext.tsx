@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import { 
     Printer, Receipt, Item, AppSettings, BackupData, SavedTicket, 
     CustomGrid, PaymentType, OrderItem, AppContextType, Table, Theme
@@ -122,10 +122,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return 'system';
   });
 
-  const setTheme = (newTheme: Theme) => {
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem('theme', newTheme);
-  };
+  }, []);
   
   // Apply theme class to HTML body
   useEffect(() => {
@@ -377,8 +377,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
                     
                     // 3. Save updates to IndexedDB (Async, don't await)
-                    // We only save the `latestReceipts` to update any changes.
-                    // This is efficient and ensures our local DB stays in sync with the server's view of the latest items.
                     idb.saveBulkReceipts(latestReceipts);
                     
                     return combined;
@@ -445,11 +443,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // 1. Save Receipt (Optimistic)
-    setReceiptsState(prev => {
-        const newHistory = [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime());
-        return newHistory;
-    });
+    // 1. Save Receipt (Optimistic) - Optimized: Prepend (O(1)) instead of full sort (O(N log N))
+    setReceiptsState(prev => [receipt, ...prev]);
     idb.saveReceipt(receipt); 
     
     // 2. Prepare Batch for Receipt + Stock Deductions
@@ -832,7 +827,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   if (initializationError) return <FirebaseError error={initializationError} />;
 
-  const contextValue: AppContextType = {
+  // MEMOIZED CONTEXT VALUE
+  // Prevents re-creation of the object on every render, which triggers re-renders in all consumers.
+  const contextValue = useMemo<AppContextType>(() => ({
       user, signOut: signOutUser,
       isDrawerOpen, openDrawer, closeDrawer, toggleDrawer, 
       headerTitle, setHeaderTitle,
@@ -853,7 +850,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       isReportsUnlocked, setReportsUnlocked,
       pendingSyncCount,
       isOnline
-  };
+  }), [
+      user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading,
+      settings, printers, paymentTypes, receipts, items, savedTickets, 
+      customGrids, tables, activeGridId, currentOrder, isReportsUnlocked, 
+      pendingSyncCount, isOnline,
+      openDrawer, closeDrawer, toggleDrawer, setHeaderTitle, setTheme, completeOnboarding,
+      updateSettings, addPrinter, removePrinter, addPaymentType, updatePaymentType, removePaymentType,
+      addReceipt, loadMoreReceipts, hasMoreReceipts, deleteReceipt, addItem, updateItem, deleteItem,
+      saveTicket, removeTicket, mergeTickets, addCustomGrid, updateCustomGrid, deleteCustomGrid, setCustomGrids,
+      addTable, updateTable, setTables, removeTable, setActiveGridId, addToOrder, removeFromOrder, deleteLineItem,
+      updateOrderItemQuantity, clearOrder, loadOrder, exportData, restoreData, exportItemsCsv, replaceItems, setReportsUnlocked
+  ]);
 
   return (
     <AppContext.Provider value={contextValue}>
