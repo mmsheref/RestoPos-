@@ -10,6 +10,7 @@ import { Capacitor } from '@capacitor/core';
 const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, user, signOut, settings, pendingSyncCount, isOnline } = useAppContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+  const [isExitModalOpen, setIsExitModalOpen] = useState(false);
 
   const handleSignOutClick = () => {
     setIsSignOutModalOpen(true);
@@ -20,15 +21,18 @@ const NavDrawer: React.FC = () => {
     setIsSignOutModalOpen(false);
   };
 
-  const handleExit = async () => {
+  const handleExitClick = () => {
+    setIsExitModalOpen(true);
+  };
+
+  const confirmExit = async () => {
     if (Capacitor.isNativePlatform()) {
         await App.exitApp();
     } else {
-        // Web fallback (usually blocked by browser, but useful for PWA installed mode sometimes)
-        if (window.confirm("Close the application?")) {
-            window.close();
-        }
+        // Web fallback
+        window.close();
     }
+    setIsExitModalOpen(false);
   };
 
   return (
@@ -122,7 +126,7 @@ const NavDrawer: React.FC = () => {
                     <span>Sign Out</span>
                 </button>
                 <button 
-                    onClick={handleExit}
+                    onClick={handleExitClick}
                     className="flex items-center justify-center px-3 py-2 text-sm font-medium transition-colors duration-200 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg border border-transparent hover:border-red-500/20"
                 >
                     <PowerIcon className="h-4 w-4 mr-2"/>
@@ -132,6 +136,7 @@ const NavDrawer: React.FC = () => {
         </div>
       </aside>
 
+      {/* Sign Out Confirmation */}
       <ConfirmModal
         isOpen={isSignOutModalOpen}
         onClose={() => setIsSignOutModalOpen(false)}
@@ -141,6 +146,18 @@ const NavDrawer: React.FC = () => {
         confirmButtonClass="bg-red-600 hover:bg-red-700"
       >
         <p>Are you sure you want to sign out of your session?</p>
+      </ConfirmModal>
+
+      {/* Exit Confirmation */}
+      <ConfirmModal
+        isOpen={isExitModalOpen}
+        onClose={() => setIsExitModalOpen(false)}
+        onConfirm={confirmExit}
+        title="Exit Application"
+        confirmText="Exit"
+        confirmButtonClass="bg-red-600 hover:bg-red-700"
+      >
+        <p>Are you sure you want to close the application?</p>
       </ConfirmModal>
     </>
   );
