@@ -3,13 +3,13 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
 
 // Helper to check if we are on a platform that supports local notifications properly
-const isSupported = () => Capacitor.isNativePlatform();
+const isNative = Capacitor.isNativePlatform();
 
 /**
  * Requests notification permissions from the OS.
  */
 export const requestNotificationPermission = async (): Promise<boolean> => {
-  if (!isSupported()) return true; // Web assumes true or handles via SW, keeping simple here
+  if (!isNative) return true; // Web handling or mock
   
   try {
     const result = await LocalNotifications.requestPermissions();
@@ -26,13 +26,13 @@ export const requestNotificationPermission = async (): Promise<boolean> => {
  * ID: 1001 (Reserved for Daily Summary)
  */
 export const scheduleDailySummary = async (timeStr: string) => {
-  if (!isSupported()) return;
+  if (!isNative) return;
 
-  // Cancel existing first
+  // Cancel existing first to update time
   await cancelDailySummary();
 
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  if (isNaN(hours) || isNaN(minutes)) return;
+  const [hour, minute] = timeStr.split(':').map(Number);
+  if (isNaN(hour) || isNaN(minute)) return;
 
   try {
     await LocalNotifications.schedule({
@@ -42,7 +42,7 @@ export const scheduleDailySummary = async (timeStr: string) => {
           body: 'Don\'t forget to close your register and check today\'s reports.',
           id: 1001,
           schedule: { 
-            on: { hour: hours, minute: minutes },
+            on: { hour, minute },
             allowWhileIdle: true 
           },
           actionTypeId: "",
@@ -60,9 +60,12 @@ export const scheduleDailySummary = async (timeStr: string) => {
  * Cancels the daily summary notification.
  */
 export const cancelDailySummary = async () => {
-  if (!isSupported()) return;
+  if (!isNative) return;
   try {
-    await LocalNotifications.cancel({ notifications: [{ id: 1001 }] });
+    const pending = await LocalNotifications.getPending();
+    if (pending.notifications.some(n => n.id === 1001)) {
+        await LocalNotifications.cancel({ notifications: [{ id: 1001 }] });
+    }
   } catch (e) {
     console.error("Failed to cancel daily summary", e);
   }
@@ -73,9 +76,10 @@ export const cancelDailySummary = async () => {
  * Used for "Low Stock" alerts.
  */
 export const sendLowStockAlert = async (itemName: string, currentStock: number) => {
-  if (!isSupported()) return;
+  if (!isNative) return;
 
-  const notifId = Math.floor(Date.now() / 1000) % 100000; // Unique ID
+  // Generate a unique ID based on time to avoid collisions
+  const notifId = Math.floor(Date.now() / 1000) % 100000 + 2000; 
 
   try {
     await LocalNotifications.schedule({
@@ -84,7 +88,7 @@ export const sendLowStockAlert = async (itemName: string, currentStock: number) 
           title: 'Low Stock Alert',
           body: `${itemName} is running low. Only ${currentStock} remaining.`,
           id: notifId,
-          schedule: { at: new Date(Date.now() + 1000) }, // 1 second form now
+          schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
           smallIcon: 'ic_stat_icon_config_sample', // Android resource if available
           actionTypeId: "",
           extra: null

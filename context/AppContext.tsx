@@ -9,7 +9,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { exportItemsToCsv } from '../utils/csvHelper';
 import { requestAppPermissions } from '../utils/permissions';
-import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary } from '../utils/notificationHelper';
+import { requestNotificationPermission, scheduleDailySummary, cancelDailySummary, sendLowStockAlert } from '../utils/notificationHelper';
 import { db, signOutUser, clearAllData, firebaseConfig, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, startAfter, getDocs, getDoc, QueryDocumentSnapshot } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
@@ -445,18 +445,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // Optimistic Update: Update UI & IndexedDB immediately
+    // 1. Save Receipt (Optimistic)
     setReceiptsState(prev => {
         const newHistory = [receipt, ...prev].sort((a,b) => b.date.getTime() - a.date.getTime());
         return newHistory;
     });
-    idb.saveReceipt(receipt); // Non-blocking save
+    idb.saveReceipt(receipt); 
     
+    // 2. Prepare Batch for Receipt + Stock Deductions
+    const batch = writeBatch(db);
+    const receiptRef = doc(db, 'users', getUid(), 'receipts', receipt.id);
+    batch.set(receiptRef, receipt);
+
+    // 3. Handle Inventory Updates & Low Stock Alerts
+    const updatedItems = [...items]; 
+    let stockUpdated = false;
+
+    receipt.items.forEach(orderItem => {
+        const itemIndex = updatedItems.findIndex(i => i.id === orderItem.id);
+        if (itemIndex > -1) {
+            const currentItem = updatedItems[itemIndex];
+            const newStock = Math.max(0, currentItem.stock - orderItem.quantity);
+            
+            // Update local state copy
+            updatedItems[itemIndex] = { ...currentItem, stock: newStock };
+            
+            // Add to batch write
+            const itemRef = doc(db, 'users', getUid(), 'items', currentItem.id);
+            batch.update(itemRef, { stock: newStock });
+            
+            stockUpdated = true;
+
+            // Check for Low Stock Notification
+            if (settings.notificationsEnabled && settings.notifyLowStock && settings.lowStockThreshold !== undefined) {
+                if (newStock <= settings.lowStockThreshold) {
+                    sendLowStockAlert(currentItem.name, newStock);
+                }
+            }
+        }
+    });
+
+    if (stockUpdated) {
+        setItemsState(updatedItems);
+        localStorage.setItem(ITEMS_CACHE_KEY, JSON.stringify(updatedItems));
+    }
+
     try { 
-        await setDoc(doc(db, 'users', getUid(), 'receipts', receipt.id), receipt);
+        await batch.commit();
     } 
-    catch (e) { console.error("Failed to save receipt", e); alert("Saved locally. Sync failed (Offline).");}
-  }, [getUid]);
+    catch (e) { console.error("Failed to save transaction", e); alert("Saved locally. Sync failed (Offline).");}
+  }, [getUid, items, settings]); // Added items and settings dependencies for stock logic
 
   const deleteReceipt = useCallback(async (id: string) => {
     setReceiptsState(prev => prev.filter(r => r.id !== id));
@@ -486,7 +524,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 scheduleDailySummary(updated.dailySummaryTime);
             }
         } else {
-            cancelDailySummary();
+            // Cancel if specifically the daily summary was disabled
+            if (newSettings.notifyDailySummary === false) {
+                cancelDailySummary();
+            }
         }
     } else {
         cancelDailySummary(); // Cancel if master disabled
