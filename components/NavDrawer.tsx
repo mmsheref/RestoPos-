@@ -1,6 +1,6 @@
 
-import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { NAV_LINKS, SignOutIcon, SyncIcon, OfflineIcon, CheckIcon, UserIcon, PowerIcon } from '../constants';
 import ConfirmModal from './modals/ConfirmModal';
@@ -11,6 +11,46 @@ const NavDrawer: React.FC = () => {
   const { isDrawerOpen, closeDrawer, user, signOut, settings, pendingSyncCount, isOnline } = useAppContext();
   const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
   const [isExitModalOpen, setIsExitModalOpen] = useState(false);
+  
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // State Ref for Back Button Listener Closure
+  const stateRef = useRef({ isDrawerOpen, isExitModalOpen, pathname: location.pathname });
+
+  useEffect(() => {
+      stateRef.current = { isDrawerOpen, isExitModalOpen, pathname: location.pathname };
+  }, [isDrawerOpen, isExitModalOpen, location.pathname]);
+
+  // Hardware Back Button Handler
+  useEffect(() => {
+      if (!Capacitor.isNativePlatform()) return;
+
+      const setupListener = async () => {
+          await App.addListener('backButton', ({ canGoBack }) => {
+              const { isDrawerOpen, isExitModalOpen, pathname } = stateRef.current;
+
+              if (isDrawerOpen) {
+                  closeDrawer();
+              } else if (isExitModalOpen) {
+                  // If exit modal is already open, back button closes it
+                  setIsExitModalOpen(false);
+              } else if (pathname !== '/sales') {
+                  // Navigate back if not on home screen
+                  navigate(-1);
+              } else {
+                  // On Home Screen (Sales), show Exit Confirmation
+                  setIsExitModalOpen(true);
+              }
+          });
+      };
+
+      setupListener();
+
+      return () => {
+          App.removeAllListeners();
+      };
+  }, [closeDrawer, navigate]);
 
   const handleSignOutClick = () => {
     setIsSignOutModalOpen(true);
