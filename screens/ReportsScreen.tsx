@@ -8,7 +8,7 @@ import { Share } from '@capacitor/share';
 
 // --- TYPES ---
 type DateFilter = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
-type ReportTab = 'overview' | 'items' | 'orders'; // Removed 'categories'
+type ReportTab = 'overview' | 'items' | 'orders'; 
 type SortConfig = { key: string; direction: 'asc' | 'desc' };
 
 interface Metrics {
@@ -108,13 +108,11 @@ const ReportsScreen: React.FC = () => {
     const [customEndDate, setCustomEndDate] = useState(() => new Date().toISOString().slice(0, 16));
     const [activeTab, setActiveTab] = useState<ReportTab>('overview');
     
-    // Sorting State for Orders (Receipts)
+    // Sorting State
     const [orderSortConfig, setOrderSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
-    
-    // Sorting State for Items
     const [itemSortConfig, setItemSortConfig] = useState<SortConfig>({ key: 'revenue', direction: 'desc' });
 
-    // --- ANALYTICS LOGIC (Integrated directly) ---
+    // --- ANALYTICS LOGIC ---
     const { filteredReceipts, metrics } = useMemo(() => {
         // 1. Calculate Date Range
         let startTime: Date;
@@ -185,13 +183,19 @@ const ReportsScreen: React.FC = () => {
         const salesByHour: Record<number, number> = {};
         const salesByCategory: Record<string, number> = {};
 
+        // Initialize all 24 hours to 0 to ensure graph continuity
         for(let i=0; i<24; i++) salesByHour[i] = 0;
 
         sorted.forEach(r => {
             totalSales += r.total;
             paymentMethods[r.paymentMethod] = (paymentMethods[r.paymentMethod] || 0) + r.total;
-            const hour = new Date(r.date).getHours();
-            salesByHour[hour] += r.total;
+            
+            // Safe Hour Extraction
+            const rDate = new Date(r.date);
+            if (!isNaN(rDate.getTime())) {
+                const hour = rDate.getHours();
+                salesByHour[hour] = (salesByHour[hour] || 0) + r.total;
+            }
 
             r.items.forEach((item: any) => {
                 if (!itemsSold[item.name]) itemsSold[item.name] = { count: 0, revenue: 0, category: item.category || 'Uncategorized' };
@@ -203,7 +207,6 @@ const ReportsScreen: React.FC = () => {
             });
         });
 
-        // Raw items array (sorting happens in render for items tab)
         const allItems = Object.entries(itemsSold)
             .map(([name, data]) => ({ name, ...data }));
 
@@ -214,7 +217,7 @@ const ReportsScreen: React.FC = () => {
                 totalOrders,
                 avgOrderValue: totalOrders > 0 ? totalSales / totalOrders : 0,
                 paymentMethods,
-                topItems: allItems.sort((a,b) => b.revenue - a.revenue).slice(0, 5), // Top 5 for overview (fixed sort)
+                topItems: allItems.sort((a,b) => b.revenue - a.revenue).slice(0, 5),
                 allItems,
                 salesByHour,
                 salesByCategory
@@ -229,7 +232,6 @@ const ReportsScreen: React.FC = () => {
             let valA: any = a[itemSortConfig.key as keyof typeof a];
             let valB: any = b[itemSortConfig.key as keyof typeof b];
             
-            // Case insensitive string sort
             if (typeof valA === 'string') {
                 valA = valA.toLowerCase();
                 valB = valB.toLowerCase();
@@ -253,7 +255,7 @@ const ReportsScreen: React.FC = () => {
         return false;
     };
     
-    // Sort Handler for Orders
+    // Sort Handlers
     const handleOrderSort = (key: string) => {
         setOrderSortConfig(current => ({
             key,
@@ -261,7 +263,6 @@ const ReportsScreen: React.FC = () => {
         }));
     };
 
-    // Sort Handler for Items
     const handleItemSort = (key: string) => {
         setItemSortConfig(current => ({
             key,
@@ -280,7 +281,6 @@ const ReportsScreen: React.FC = () => {
     };
 
     const handleExport = async () => {
-        // Simple CSV generation logic (kept inline for brevity, could be extracted)
         let csv = `REPORT,${new Date().toLocaleString()}\nFilter,${filter}\nTotal Sales,${metrics.totalSales}\n\n`;
         csv += "ID,Date,Method,Total\n";
         filteredReceipts.forEach(r => csv += `${r.id},${new Date(r.date).toLocaleString()},${r.paymentMethod},${r.total}\n`);
@@ -304,7 +304,6 @@ const ReportsScreen: React.FC = () => {
 
     const isFilterActive = filter !== 'today' || paymentMethodFilter !== 'all';
 
-    // Compact Header for non-overview tabs
     const CompactSummary: React.FC = () => (
         <div className="flex flex-wrap gap-4 mb-4">
             <div className="bg-surface px-4 py-3 rounded-xl border border-border shadow-sm flex-1 min-w-[140px] flex justify-between items-center">
@@ -330,7 +329,7 @@ const ReportsScreen: React.FC = () => {
 
     return (
         <div className="flex h-full flex-col bg-background overflow-hidden font-sans">
-            {/* --- HEADER (Always Visible) --- */}
+            {/* --- HEADER --- */}
             <header className="flex-shrink-0 bg-surface border-b border-border z-20">
                 <div className="h-16 flex items-center justify-between px-4">
                     <div className="flex items-center">
@@ -452,18 +451,22 @@ const ReportsScreen: React.FC = () => {
                                     <div className="bg-surface p-6 rounded-2xl shadow-sm border border-border">
                                         <h3 className="text-lg font-bold text-text-primary mb-6">Sales Activity (24h)</h3>
                                         <div className="h-48 flex items-end gap-1.5 px-2">
-                                            {Object.entries(metrics.salesByHour).map(([hour, value]) => (
-                                                <div key={hour} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                                                    <div 
-                                                        className="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all relative min-h-[4px]"
-                                                        style={{ height: `${((value as number) / maxHourlySales) * 100}%` }}
-                                                    ></div>
-                                                    {/* Tooltip */}
-                                                    <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 transition-opacity">
-                                                        {hour}:00 - ₹{(value as number)}
+                                            {/* Explicitly iterate 0-23 to guarantee correct order and presence of all bars */}
+                                            {Array.from({ length: 24 }).map((_, hour) => {
+                                                const value = metrics.salesByHour[hour] || 0;
+                                                return (
+                                                    <div key={hour} className="flex-1 flex flex-col items-center group relative h-full justify-end">
+                                                        <div 
+                                                            className="w-full bg-primary/80 hover:bg-primary rounded-t-sm transition-all relative min-h-[4px]"
+                                                            style={{ height: `${((value) / maxHourlySales) * 100}%` }}
+                                                        ></div>
+                                                        {/* Tooltip */}
+                                                        <div className="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-black/80 text-white text-[10px] px-2 py-1 rounded pointer-events-none whitespace-nowrap z-10 transition-opacity">
+                                                            {hour}:00 - ₹{value}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                         <div className="flex justify-between text-[10px] text-text-muted mt-2 border-t border-border pt-2 uppercase tracking-wide">
                                             <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span>
