@@ -88,20 +88,32 @@ const Layout: React.FC = () => {
     const deltaX = touchX - touchStartRef.current.x;
     const deltaY = Math.abs(touchY - touchStartRef.current.y);
 
-    // Optimized Swipe Logic for Navigation Drawer:
-    // 1. Edge Detection: Swipe must start within the first 60px of the left screen edge.
-    // 2. Direction: Must be horizontal (deltaX > deltaY).
-    // 3. Threshold: Must move at least 40px to trigger.
+    // Optimized Swipe Logic:
+    // 1. Swipe must start near left edge (increased from 60px to 80px for easier detection)
+    // 2. Swipe must be horizontal (deltaX > 50px)
+    // 3. Dominant direction must be horizontal (deltaX > deltaY * 1.2) to prevent accidental diagonal triggers
     
-    if (touchStartRef.current.x < 60 && deltaX > 40 && deltaX > deltaY) {
+    if (touchStartRef.current.x < 80 && deltaX > 50 && deltaX > (deltaY * 1.2)) {
         openDrawer();
-        touchStartRef.current = null; // Reset to prevent multiple triggers in one gesture
+        touchStartRef.current = null; // Reset to prevent multiple triggers
     }
   };
 
   const handleTouchEnd = () => {
       touchStartRef.current = null;
   };
+
+  // MEMOIZE SCREEN INSTANCES
+  // This ensures the React element object passed to KeepAliveScreen is stable across re-renders of Layout.
+  // KeepAliveScreen (React.memo) will then skip re-rendering if `isVisible` hasn't changed.
+  // Note: The screens themselves will still re-render if they consume Context and Context changes,
+  // but we save the DOM Diffing of the wrapper divs.
+  const salesScreen = useMemo(() => <SalesScreen />, []);
+  const receiptsScreen = useMemo(() => <ReceiptsScreen />, []);
+  const reportsScreen = useMemo(() => <ReportsScreen />, []);
+  const itemsScreen = useMemo(() => <ItemsScreen />, []);
+  const settingsScreen = useMemo(() => <SettingsScreen />, []);
+  const aboutScreen = useMemo(() => <AboutScreen />, []);
 
   return (
     <div 
@@ -127,36 +139,36 @@ const Layout: React.FC = () => {
         */}
         
         <KeepAliveScreen isVisible={pathname === '/sales'}>
-            <SalesScreen />
+            {salesScreen}
         </KeepAliveScreen>
 
         {visitedRoutes['/receipts'] && (
             <KeepAliveScreen isVisible={pathname === '/receipts'}>
-                <ReceiptsScreen />
+                {receiptsScreen}
             </KeepAliveScreen>
         )}
 
         {visitedRoutes['/reports'] && (
             <KeepAliveScreen isVisible={pathname === '/reports'}>
-                <ReportsScreen />
+                {reportsScreen}
             </KeepAliveScreen>
         )}
 
         {visitedRoutes['/items'] && (
             <KeepAliveScreen isVisible={pathname === '/items'}>
-                <ItemsScreen />
+                {itemsScreen}
             </KeepAliveScreen>
         )}
 
         {visitedRoutes['/settings'] && (
             <KeepAliveScreen isVisible={pathname === '/settings'}>
-                <SettingsScreen />
+                {settingsScreen}
             </KeepAliveScreen>
         )}
         
         {visitedRoutes['/about'] && (
             <KeepAliveScreen isVisible={pathname === '/about'}>
-                <AboutScreen />
+                {aboutScreen}
             </KeepAliveScreen>
         )}
 

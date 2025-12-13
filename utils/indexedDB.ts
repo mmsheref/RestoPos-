@@ -34,10 +34,11 @@ const openDB = (): Promise<IDBDatabase> => {
 
 export const idb = {
   /**
-   * Retrieves all receipts from the local database.
+   * Retrieves receipts from the local database.
+   * @param limit Optional limit to restrict the number of items returned (Optimized for performance).
    * Returns them sorted by date (newest first).
    */
-  getAllReceipts: async (): Promise<Receipt[]> => {
+  getAllReceipts: async (limit?: number): Promise<Receipt[]> => {
     try {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -46,10 +47,15 @@ export const idb = {
             const request = store.getAll();
 
             request.onsuccess = () => {
-                const results = request.result as Receipt[];
+                let results = request.result as Receipt[];
                 // Sort in memory after retrieval (Newest First)
-                // Note: Indexing by date in IDB is possible but sorting in JS is usually fast enough for <10k items
                 results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                
+                // Apply limit if provided to prevent memory bloat
+                if (limit && limit > 0 && results.length > limit) {
+                    results = results.slice(0, limit);
+                }
+                
                 resolve(results);
             };
 

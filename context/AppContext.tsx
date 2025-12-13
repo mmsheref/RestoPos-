@@ -39,6 +39,9 @@ const DEFAULT_SETTINGS: AppSettings = {
     dailySummaryTime: '22:00'
 };
 
+// Max number of receipts to keep in memory context to prevent lag
+const MAX_RECEIPTS_IN_MEMORY = 1000;
+
 interface FirebaseErrorState {
   title: string;
   message: string;
@@ -189,7 +192,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Load receipts from IDB on mount
   useEffect(() => {
       const loadReceipts = async () => {
-          const stored = await idb.getAllReceipts();
+          // OPTIMIZATION: Only load the most recent 100 receipts on startup.
+          // Loading thousands of historical receipts causes significant memory lag.
+          // Users can load more via the UI if needed.
+          const stored = await idb.getAllReceipts(100);
           if (stored.length > 0) {
               setReceiptsState(stored);
           }
@@ -376,10 +382,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     
                     const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
                     
+                    // MEMORY OPTIMIZATION: Cap the receipts list in memory to MAX_RECEIPTS_IN_MEMORY
+                    // This prevents the application from becoming laggy after extended use.
+                    const cappedResults = combined.slice(0, MAX_RECEIPTS_IN_MEMORY);
+
                     // 3. Save updates to IndexedDB (Async, don't await)
                     idb.saveBulkReceipts(latestReceipts);
                     
-                    return combined;
+                    return cappedResults;
                 });
                 
                 const pendingCount = snapshot.docs.filter(doc => doc.metadata.hasPendingWrites).length;
@@ -431,8 +441,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               
               setReceiptsState(prev => {
                   const merged = [...prev, ...newReceipts].sort((a,b) => b.date.getTime() - a.date.getTime());
+                  // Still apply cap on load more to protect memory, though less aggressive here as user explicitly requested
+                  const capped = merged.slice(0, MAX_RECEIPTS_IN_MEMORY * 2); 
                   idb.saveBulkReceipts(newReceipts); // Persist fetched history
-                  return merged;
+                  return capped;
               });
               
               setLastReceiptDoc(snapshot.docs[snapshot.docs.length - 1]);
@@ -443,8 +455,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [lastReceiptDoc, user]);
   
   const addReceipt = useCallback(async (receipt: Receipt) => {
-    // 1. Save Receipt (Optimistic) - Optimized: Prepend (O(1)) instead of full sort (O(N log N))
-    setReceiptsState(prev => [receipt, ...prev]);
+    // 1. Save Receipt (Optimistic)
+    // OPTIMIZATION: Ensure we don't exceed memory cap
+    setReceiptsState(prev => [receipt, ...prev].slice(0, MAX_RECEIPTS_IN_MEMORY));
     idb.saveReceipt(receipt); 
     
     // 2. Prepare Batch for Receipt + Stock Deductions
