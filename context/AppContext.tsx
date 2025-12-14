@@ -350,24 +350,48 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             // 4. Real-time Listener for Receipts
             const qReceipts = query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(100));
+            
             const unsubReceipts = onSnapshot(qReceipts, { includeMetadataChanges: true }, (snapshot) => {
+                // Sync to IDB: Handle Adds, Modifications, and REMOVALS
+                const changes = snapshot.docChanges();
+                
+                const toSave: Receipt[] = [];
+                const toDeleteIds: string[] = [];
+
+                changes.forEach(change => {
+                    // Safe cast with date conversion
+                    const data = change.doc.data();
+                    if (!data) return;
+                    
+                    const receipt = { ...data, date: (data.date as Timestamp).toDate() } as Receipt;
+                    
+                    if (change.type === 'removed') {
+                        toDeleteIds.push(receipt.id);
+                    } else {
+                        toSave.push(receipt);
+                    }
+                });
+
+                // Execute IDB writes (Non-blocking)
+                if (toSave.length > 0) idb.saveBulkReceipts(toSave);
+                toDeleteIds.forEach(id => idb.deleteReceipt(id));
+
+                // Update React State (UI)
                 const latestReceipts = snapshot.docs.map(doc => ({ ...doc.data(), date: (doc.data().date as Timestamp).toDate() } as Receipt));
                 
-                // PERFORMANCE FIX: Trigger IndexedDB save OUTSIDE the React state updater.
-                // This prevents blocking the UI render cycle with non-UI async work.
-                idb.saveBulkReceipts(latestReceipts);
-
                 setReceiptsState(currentLocalReceipts => {
                     const mergedMap = new Map<string, Receipt>();
                     
-                    // 1. Put active local receipts into map
+                    // 1. Put active local receipts into map (Preserve older items if scrolled down)
                     currentLocalReceipts.forEach(r => mergedMap.set(r.id, r));
                     
-                    // 2. Overwrite with latest data from listener
+                    // 2. Remove deleted items from local state
+                    toDeleteIds.forEach(id => mergedMap.delete(id));
+
+                    // 3. Overwrite with latest data from listener
                     latestReceipts.forEach(r => mergedMap.set(r.id, r));
                     
                     const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
-                    
                     return combined;
                 });
                 

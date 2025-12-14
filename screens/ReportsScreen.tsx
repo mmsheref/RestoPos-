@@ -233,12 +233,19 @@ const ReportsScreen: React.FC = () => {
                 rangeData.forEach(r => map.set(r.id, r));
                 
                 // Overlay any matching receipts from the lightweight context
-                contextReceipts.forEach(r => {
+                // Optimization: contextReceipts is sorted (newest first).
+                // We only need to check items that fall within our date range.
+                // If we encounter an item OLDER than start date, we can stop iterating.
+                for (const r of contextReceipts) {
                     const rDate = new Date(r.date);
-                    if (rDate >= dateRange.start && rDate <= dateRange.end) {
+                    if (rDate < dateRange.start) {
+                        // Context receipts are sorted desc. If we hit one older than start, we are done.
+                        break; 
+                    }
+                    if (rDate <= dateRange.end) {
                         map.set(r.id, r);
                     }
-                });
+                }
 
                 setFetchedReceipts(Array.from(map.values()));
             } catch (error) {
