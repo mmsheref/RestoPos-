@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon } from '../constants';
+import { LockIcon, MenuIcon, DollarSignIcon, ChartIcon, CheckIcon, DownloadIcon, CloseIcon, ArrowLeftIcon } from '../constants';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -37,6 +37,37 @@ const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, 
         </div>
     </div>
 );
+
+// --- COMPONENT: PAGINATION CONTROLS ---
+const PaginationControls: React.FC<{ 
+    currentPage: number; 
+    totalPages: number; 
+    onPageChange: (page: number) => void;
+}> = ({ currentPage, totalPages, onPageChange }) => {
+    if (totalPages <= 1) return null;
+    
+    return (
+        <div className="flex justify-between items-center p-4 border-t border-border bg-surface">
+            <button
+                disabled={currentPage === 1}
+                onClick={() => onPageChange(currentPage - 1)}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                Previous
+            </button>
+            <span className="text-sm text-text-secondary font-medium">
+                Page {currentPage} of {totalPages}
+            </span>
+            <button
+                disabled={currentPage === totalPages}
+                onClick={() => onPageChange(currentPage + 1)}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-border hover:bg-surface-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+                Next
+            </button>
+        </div>
+    );
+};
 
 // --- COMPONENT: SECURITY OVERLAY ---
 const SecurityOverlay: React.FC<{ onUnlock: (pin: string) => boolean }> = ({ onUnlock }) => {
@@ -119,6 +150,15 @@ const ReportsScreen: React.FC = () => {
     // Sorting State
     const [orderSortConfig, setOrderSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
     const [itemSortConfig, setItemSortConfig] = useState<SortConfig>({ key: 'revenue', direction: 'desc' });
+
+    // Pagination State
+    const ITEMS_PER_PAGE = 50;
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Reset pagination when tab or filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab, filter, shiftFilter, paymentMethodFilter, orderSortConfig, itemSortConfig]);
 
     // Determine the effective date range based on filter
     const dateRange = useMemo<{ start: Date, end: Date }>(() => {
@@ -382,6 +422,20 @@ const ReportsScreen: React.FC = () => {
         </div>
     );
 
+    // Pagination Logic: Slice data for current page
+    const paginatedItems = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return sortedItems.slice(start, start + ITEMS_PER_PAGE);
+    }, [sortedItems, currentPage]);
+
+    const paginatedOrders = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredReceipts.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredReceipts, currentPage]);
+
+    const totalItemPages = Math.ceil(sortedItems.length / ITEMS_PER_PAGE);
+    const totalOrderPages = Math.ceil(filteredReceipts.length / ITEMS_PER_PAGE);
+
     return (
         <div className="flex h-full flex-col bg-background overflow-hidden font-sans">
             {/* --- HEADER --- */}
@@ -603,7 +657,7 @@ const ReportsScreen: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-surface divide-y divide-border">
-                                            {sortedItems.map((item) => (
+                                            {paginatedItems.map((item) => (
                                                 <tr key={item.name} className="hover:bg-surface-muted/50 transition-colors">
                                                     <td className="px-6 py-3.5 whitespace-nowrap text-sm font-medium text-text-primary">{item.name}</td>
                                                     <td className="px-6 py-3.5 whitespace-nowrap text-sm text-text-secondary">{item.category}</td>
@@ -614,6 +668,11 @@ const ReportsScreen: React.FC = () => {
                                             {sortedItems.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No items found for this period.</td></tr>}
                                         </tbody>
                                     </table>
+                                    <PaginationControls 
+                                        currentPage={currentPage} 
+                                        totalPages={totalItemPages} 
+                                        onPageChange={setCurrentPage} 
+                                    />
                                 </div>
                             </div>
                         )}
@@ -642,7 +701,7 @@ const ReportsScreen: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody className="bg-surface divide-y divide-border">
-                                            {filteredReceipts.map((r) => (
+                                            {paginatedOrders.map((r) => (
                                                 <tr key={r.id} className="hover:bg-surface-muted/50 transition-colors">
                                                     <td className="px-6 py-3.5 text-xs font-mono text-text-secondary">#{r.id.slice(-6)}</td>
                                                     <td className="px-6 py-3.5 text-sm text-text-primary">{new Date(r.date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
@@ -653,6 +712,11 @@ const ReportsScreen: React.FC = () => {
                                             {filteredReceipts.length === 0 && <tr><td colSpan={4} className="px-6 py-8 text-center text-text-muted">No orders found for this period.</td></tr>}
                                         </tbody>
                                     </table>
+                                    <PaginationControls 
+                                        currentPage={currentPage} 
+                                        totalPages={totalOrderPages} 
+                                        onPageChange={setCurrentPage} 
+                                    />
                                 </div>
                             </div>
                         )}
