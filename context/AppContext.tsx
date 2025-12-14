@@ -186,15 +186,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Receipts: Empty initially, populated async from IndexedDB
   const [receipts, setReceiptsState] = useState<Receipt[]>([]);
 
-  // Load receipts from IDB on mount
+  // Load ONLY RECENT receipts from IDB on mount for performance
   useEffect(() => {
-      const loadReceipts = async () => {
-          const stored = await idb.getAllReceipts();
+      const loadRecent = async () => {
+          // Optimization: Only load last 50 items to keep app snappy
+          const stored = await idb.getRecentReceipts(50);
           if (stored.length > 0) {
               setReceiptsState(stored);
           }
       };
-      loadReceipts();
+      loadRecent();
   }, []);
 
   const [printers, setPrintersState] = useState<Printer[]>([]);
@@ -368,10 +369,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setReceiptsState(currentLocalReceipts => {
                     const mergedMap = new Map<string, Receipt>();
                     
-                    // 1. Put all current local receipts into map (Source of Truth for History)
+                    // Optimization: We are NOT iterating the entire history here anymore,
+                    // just the active 'view' set (limit 50 from IDB + 100 from snapshot).
+                    
+                    // 1. Put active local receipts into map
                     currentLocalReceipts.forEach(r => mergedMap.set(r.id, r));
                     
-                    // 2. Overwrite with latest data from listener (Source of Truth for Updates)
+                    // 2. Overwrite with latest data from listener
                     latestReceipts.forEach(r => mergedMap.set(r.id, r));
                     
                     const combined = Array.from(mergedMap.values()).sort((a,b) => b.date.getTime() - a.date.getTime());
