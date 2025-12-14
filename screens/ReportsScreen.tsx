@@ -197,7 +197,7 @@ const ReportsScreen: React.FC = () => {
             }
 
             // Apply Shift Logic ONLY for 'today' and 'yesterday'
-            if ((filter === 'today' || filter === 'yesterday') && shiftFilter !== 'all') {
+            if (filter === 'today' || filter === 'yesterday') {
                 const morningStartStr = settings.shiftMorningStart || '06:00';
                 const morningEndStr = settings.shiftMorningEnd || '17:30';
                 const nightEndStr = settings.shiftNightEnd || '05:00';
@@ -205,8 +205,14 @@ const ReportsScreen: React.FC = () => {
                 if (shiftFilter === 'morning') {
                     startTime = setTime(anchorDayStart, morningStartStr, '06:00');
                     endTime = setTime(anchorDayStart, morningEndStr, '17:30');
-                } else { // shiftFilter === 'night'
+                } else if (shiftFilter === 'night') {
                     startTime = setTime(anchorDayStart, morningEndStr, '17:30');
+                    endTime = setTime(anchorDayStart, nightEndStr, '05:00');
+                    endTime.setDate(endTime.getDate() + 1); // Next day
+                } else {
+                    // shiftFilter === 'all' (All Day)
+                    // Configured to cover the full business day: Morning Start -> Night End (Next Day)
+                    startTime = setTime(anchorDayStart, morningStartStr, '06:00');
                     endTime = setTime(anchorDayStart, nightEndStr, '05:00');
                     endTime.setDate(endTime.getDate() + 1); // Next day
                 }
