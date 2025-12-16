@@ -35,7 +35,7 @@ interface Metrics {
 
 // --- COMPONENT: REPORT STAT CARD ---
 const StatCard: React.FC<{ title: string, value: string, icon: React.ReactNode, colorClass: string }> = React.memo(({ title, value, icon, colorClass }) => (
-    <div className="bg-surface p-5 rounded-2xl shadow-sm border border-border flex items-center gap-4 transition-transform hover:scale-[1.01]">
+    <div className="bg-surface p-5 rounded-2xl shadow-sm border border-border flex items-center gap-4 transition-transform hover:scale-[1.01] min-w-[85vw] sm:min-w-[280px] md:min-w-0 flex-shrink-0 md:flex-shrink snap-center">
         <div className={`p-3 rounded-xl ${colorClass}`}>
             {icon}
         </div>
@@ -770,7 +770,8 @@ const ReportsScreen: React.FC = () => {
                     <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-surface-muted/30">
                         {activeTab === 'overview' && (
                             <div className="max-w-6xl mx-auto space-y-6 animate-fadeIn">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {/* Cards - Horizontal Scrolling on Mobile */}
+                                <div className="flex md:grid md:grid-cols-3 gap-4 overflow-x-auto pb-4 md:pb-0 -mx-4 px-4 md:mx-0 md:px-0 snap-x no-scrollbar md:overflow-visible">
                                     <StatCard 
                                         title="Total Sales" 
                                         value={`₹${metrics.totalSales.toFixed(2)}`} 
