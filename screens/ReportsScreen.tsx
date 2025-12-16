@@ -240,6 +240,8 @@ const ReportsScreen: React.FC = () => {
     // because that list is truncated for performance. Reports need full history.
     const [fetchedReceipts, setFetchedReceipts] = useState<Receipt[]>([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
+    // Track the currently loaded range to implement caching
+    const [loadedRange, setLoadedRange] = useState<{ start: number, end: number } | null>(null);
 
     // Filters State
     const [filter, setFilter] = useState<DateFilter>('today');
@@ -326,14 +328,23 @@ const ReportsScreen: React.FC = () => {
         return { start: startTime, end: endTime };
     }, [filter, shiftFilter, customStartDate, customEndDate, settings]);
 
-    // Fetch data directly from Firestore on Demand (Lazy Loading)
+    // Fetch data directly from Firestore on Demand (Lazy Loading) with Caching
     useEffect(() => {
         const fetchData = async () => {
             if (!user) return;
+
+            const startTs = dateRange.start.getTime();
+            const endTs = dateRange.end.getTime();
+
+            // Cache Optimization: If the requested range is fully contained within the currently loaded data, skip fetch.
+            if (loadedRange && startTs >= loadedRange.start && endTs <= loadedRange.end) {
+                // Data is already loaded in memory, no need to touch the network.
+                return;
+            }
+
             setIsLoadingData(true);
             try {
                 // Best Practice: Direct Query to Firestore for specific range
-                // This bypasses the 100-item limit in AppContext and ensures accuracy.
                 const q = query(
                     collection(db, 'users', user.uid, 'receipts'),
                     where('date', '>=', dateRange.start),
@@ -355,6 +366,7 @@ const ReportsScreen: React.FC = () => {
                 });
 
                 setFetchedReceipts(receipts);
+                setLoadedRange({ start: startTs, end: endTs });
             } catch (error) {
                 console.error("Error fetching reports data:", error);
             } finally {
@@ -362,12 +374,19 @@ const ReportsScreen: React.FC = () => {
             }
         };
         fetchData();
-    }, [dateRange, user]);
+    }, [dateRange, user, loadedRange]);
 
     // --- ANALYTICS LOGIC (Runs on the fetched subset) ---
     const { filteredReceipts, metrics } = useMemo(() => {
-        // Apply Payment Method Filter
-        const filtered = fetchedReceipts.filter(r => {
+        // Filter 1: In-Memory Date Filter
+        // Essential because fetchedReceipts might contain a wider range (e.g. Month) than requested (e.g. Today)
+        const dateFiltered = fetchedReceipts.filter(r => {
+            const rTime = new Date(r.date).getTime();
+            return rTime >= dateRange.start.getTime() && rTime <= dateRange.end.getTime();
+        });
+
+        // Filter 2: Payment Method
+        const filtered = dateFiltered.filter(r => {
             return paymentMethodFilter === 'all' || r.paymentMethod === paymentMethodFilter;
         });
         
