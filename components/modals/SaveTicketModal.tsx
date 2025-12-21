@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import type { SavedTicket } from '../../types';
 import { useAppContext } from '../../context/AppContext';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 interface SaveTicketModalProps {
   isOpen: boolean;
@@ -19,10 +21,21 @@ const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSa
     }
   }, [isOpen, editingTicket]);
   
-  const handleSave = () => {
+  const handleSave = async () => {
     if (name.trim()) {
+      await Haptics.impact({ style: ImpactStyle.Medium });
       onSave(name.trim());
     }
+  };
+
+  const handleTableSelect = async (tableName: string) => {
+    await Haptics.impact({ style: ImpactStyle.Medium });
+    onSave(tableName);
+  };
+
+  const handleCancel = async () => {
+    await Haptics.impact({ style: ImpactStyle.Light });
+    onClose();
   };
 
   const isUpdating = !!editingTicket;
@@ -30,19 +43,19 @@ const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSa
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50" onClick={handleCancel}>
       <div className="bg-surface rounded-lg p-6 shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
         <h2 className="text-2xl font-bold mb-4 text-text-primary">{isUpdating ? 'Update Ticket' : 'Save Ticket'}</h2>
         
         {tables.length > 0 && (
           <>
-            <p className="text-sm font-medium text-text-secondary mb-2">Quick Select</p>
+            <p className="text-sm font-medium text-text-secondary mb-2">Quick Select Table (Saves Immediately)</p>
             <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto pr-2">
                 {tables.map(table => (
                     <button 
                       key={table.id} 
-                      onClick={() => setName(table.name)} 
-                      className="w-full text-left p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                      onClick={() => handleTableSelect(table.name)} 
+                      className="w-full text-left p-3 bg-surface-muted rounded-md text-text-secondary font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors active:scale-[0.99]"
                     >
                         {table.name}
                     </button>
@@ -68,7 +81,7 @@ const SaveTicketModal: React.FC<SaveTicketModalProps> = ({ isOpen, onClose, onSa
         />
         
         <div className="flex justify-end items-center pt-6 mt-2 border-t border-border gap-2">
-            <button onClick={onClose} className="px-6 py-2 bg-surface-muted text-text-secondary rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
+            <button onClick={handleCancel} className="px-6 py-2 bg-surface-muted text-text-secondary rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
             <button onClick={handleSave} disabled={!name.trim()} className="px-6 py-2 bg-primary text-primary-content rounded-lg hover:bg-primary-hover disabled:bg-gray-300 disabled:dark:bg-gray-500">
                 {isUpdating ? 'Update Ticket' : 'Save Ticket'}
             </button>
