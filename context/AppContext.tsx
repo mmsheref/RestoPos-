@@ -14,7 +14,6 @@ import { db, signOutUser, auth } from '../firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, writeBatch, Timestamp, query, orderBy, limit, getDocs, getDoc, increment } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { idb } from '../utils/indexedDB'; 
-import { useStatusContext } from './StatusContext';
 
 const DEFAULT_SETTINGS: AppSettings = { 
     taxEnabled: true, 
@@ -46,7 +45,6 @@ const safeStorage = {
 };
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { setPendingSyncCount } = useStatusContext();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(() => !safeStorage.getItem(ONBOARDING_COMPLETED_KEY));
@@ -159,7 +157,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             const unsubReceipts = onSnapshot(query(collection(db, 'users', uid, 'receipts'), orderBy('date', 'desc'), limit(50)), (snap) => {
                 setReceiptsState(snap.docs.map(d => ({ ...d.data(), date: (d.data().date as Timestamp).toDate() } as Receipt)));
-                setPendingSyncCount(snap.docs.filter(d => d.metadata.hasPendingWrites).length);
             });
             setIsLoading(false);
             return () => unsubReceipts();
@@ -169,7 +166,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
     });
     return () => unsubAuth();
-  }, [setPendingSyncCount]);
+  }, []);
 
   const addReceipt = useCallback(async (receipt: Receipt) => {
     // 1. DATA STRIPPING (BEST PRACTICE): Never store Base64 images in receipts.
@@ -201,6 +198,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setItemsState(updatedItems);
     try { await batch.commit(); } catch (e) { console.warn("Background sync deferred"); }
   }, [user, items, settings]);
+  
+  const saveTicket = useCallback(async (t: SavedTicket) => {
+      setSavedTicketsState(v => [...v.filter(x => x.id !== t.id), t]);
+      await setDoc(doc(db, 'users', user!.uid, 'saved_tickets', t.id), t);
+  }, [user]);
+
+  const removeTicket = useCallback(async (id: string) => {
+      setSavedTicketsState(v => v.filter(x => x.id !== id));
+      await deleteDoc(doc(db, 'users', user!.uid, 'saved_tickets', id));
+  }, [user]);
+
+  const mergeTickets = useCallback(async (ticketIds: string[], newName: string) => {
+      const ticketsToMerge = savedTickets.filter(t => ticketIds.includes(t.id));
+      if (ticketsToMerge.length < 2) return;
+
+      const allItems = ticketsToMerge.flatMap(t => t.items);
+      const newTicket: SavedTicket = {
+          id: `T${Date.now()}`,
+          name: newName,
+          items: allItems,
+          lastModified: Date.now()
+      };
+      
+      // Save the new merged ticket
+      await saveTicket(newTicket);
+
+      // Delete the old tickets
+      const batch = writeBatch(db);
+      for (const id of ticketIds) {
+          batch.delete(doc(db, 'users', user!.uid, 'saved_tickets', id));
+      }
+      await batch.commit();
+      
+      // Update local state
+      setSavedTicketsState(prev => [...prev.filter(t => !ticketIds.includes(t.id)), newTicket]);
+  }, [savedTickets, saveTicket, user]);
+
 
   const value = useMemo(() => ({
       user, signOut: signOutUser,
@@ -261,15 +295,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setItemsState(v => v.filter(x => x.id !== id));
           await deleteDoc(doc(db, 'users', user!.uid, 'items', id));
       },
-      savedTickets, saveTicket: async (t: SavedTicket) => {
-          setSavedTicketsState(v => [...v.filter(x => x.id !== t.id), t]);
-          await setDoc(doc(db, 'users', user!.uid, 'saved_tickets', t.id), t);
-      },
-      removeTicket: async (id: string) => {
-          setSavedTicketsState(v => v.filter(x => x.id !== id));
-          await deleteDoc(doc(db, 'users', user!.uid, 'saved_tickets', id));
-      },
-      mergeTickets: async () => {},
+      savedTickets, saveTicket, removeTicket, mergeTickets,
       customGrids, addCustomGrid: async (g: CustomGrid) => {
           setCustomGridsState(v => [...v, g]);
           await setDoc(doc(db, 'users', user!.uid, 'custom_grids', g.id), g);
@@ -335,7 +361,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           batch.commit();
       },
       isReportsUnlocked, setReportsUnlocked
-  }), [user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked, addReceipt, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder]);
+  }), [user, isDrawerOpen, headerTitle, theme, showOnboarding, isLoading, settings, items, customGrids, receipts, printers, paymentTypes, savedTickets, tables, activeGridId, currentOrder, isReportsUnlocked, addReceipt, addToOrder, removeFromOrder, deleteLineItem, updateOrderItemQuantity, clearOrder, loadOrder, saveTicket, removeTicket, mergeTickets]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
