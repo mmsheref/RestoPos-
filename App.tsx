@@ -24,7 +24,8 @@ interface ErrorBoundaryState {
 }
 
 // FIX: Correctly extend from the imported `Component` to ensure `this.props` and `this.state` are available.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Changed to extend React.Component directly to ensure correct type inference.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
