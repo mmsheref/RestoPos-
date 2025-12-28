@@ -1,7 +1,5 @@
 
-
-
-import React, { useEffect, useState, Component, ReactNode } from 'react';
+import React, { useEffect, useState, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
@@ -24,7 +22,7 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: To resolve a TypeScript error where `this.props` was not recognized, the class now explicitly extends `React.Component` instead of `Component`.
+// FIX: The `ErrorBoundary` component correctly extends `React.Component`, which provides the `props` property. The unused `Component` import was removed to avoid potential type resolution conflicts.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false };
 
@@ -47,8 +45,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // FIX: The error "Property 'props' does not exist" indicates the class was not correctly extending React.Component.
-    // By ensuring the class declaration is `class ErrorBoundary extends React.Component<...>`, `this.props` becomes available.
     return this.props.children;
   }
 }
