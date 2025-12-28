@@ -47,6 +47,8 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
+    // FIX: The error "Property 'props' does not exist" indicates the class was not correctly extending React.Component.
+    // By ensuring the class declaration is `class ErrorBoundary extends React.Component<...>`, `this.props` becomes available.
     return this.props.children;
   }
 }
