@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, ReactNode } from 'react';
+import React, { useEffect, useState, ReactNode, Component } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
@@ -22,18 +22,20 @@ interface ErrorBoundaryState {
   hasError: boolean;
 }
 
-// FIX: Explicitly extending React.Component with typed props and state to resolve inheritance issues.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    // FIX: Initializing state in the constructor with explicit typing provided by React.Component.
-    this.state = { hasError: false };
+// FIX: Explicitly extending Component with typed props and state to resolve inheritance issues.
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Declare state as a class property to satisfy TypeScript
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(_: Error): ErrorBoundaryState { 
+    return { hasError: true }; 
   }
 
-  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
 
   render() {
-    // FIX: Accessing state via this.state correctly now that the class correctly extends the base React.Component.
     if (this.state.hasError) {
       return (
         <div className="flex h-screen w-full items-center justify-center bg-background p-6 text-center">
@@ -50,7 +52,6 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
         </div>
       );
     }
-    // FIX: Accessing children via this.props.children correctly inherited from React.Component.
     return this.props.children;
   }
 }
