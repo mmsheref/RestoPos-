@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, ReactNode, Component } from 'react';
+import React, { useEffect, useState, ReactNode } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import Layout from './components/Layout';
@@ -23,7 +23,7 @@ interface ErrorBoundaryState {
 }
 
 // FIX: Explicitly extending Component with typed props and state to resolve inheritance issues.
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   // Fix: Declare state as a class property to satisfy TypeScript
   state: ErrorBoundaryState = { hasError: false };
 
@@ -70,7 +70,10 @@ const AppRoutes: React.FC = () => {
                     const style = theme === 'dark' ? Style.Dark : Style.Light;
                     await StatusBar.setStyle({ style });
                     if (Capacitor.getPlatform() === 'android') {
-                        const color = theme === 'dark' ? '#262626' : '#FFFFFF';
+                        // FIX: Match exact background colors for seamless look
+                        // Dark: #121212 (App Background), Light: #FFFFFF (Surface/Header) or #F3F4F6 (App BG)
+                        // We use the surface color for light mode to blend with headers, and app bg for dark.
+                        const color = theme === 'dark' ? '#121212' : '#FFFFFF';
                         await StatusBar.setBackgroundColor({ color });
                     }
                 } catch (e) {
